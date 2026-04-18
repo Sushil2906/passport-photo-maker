@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Passport Photo Maker</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div id="loginScreen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+    <div style="background:#fff;border-radius:16px;padding:40px 32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:340px;width:90%;">
+      <div style="font-size:3rem;margin-bottom:8px">🪪</div>
+      <h2 style="color:#2d3748;margin-bottom:8px">Passport Photo Maker</h2>
+      <p style="color:#718096;font-size:0.88rem;margin-bottom:24px">Sign in with your Google account to continue.</p>
+      <button id="loginBtn" style="display:flex;align-items:center;gap:10px;margin:0 auto;padding:11px 22px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.93rem;font-weight:600;color:#2d3748">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20"/> Sign in with Google
+      </button>
+      <p id="loginMsg" style="margin-top:14px;font-size:0.83rem;color:#e53e3e;min-height:18px"></p>
+    </div>
+  </div>
+
+  <!-- App (shown only after auth) -->
+  <div id="appRoot" style="display:none">
+    <button id="logoutBtn" style="position:fixed;top:12px;right:16px;z-index:999;padding:5px 13px;border:1.5px solid rgba(255,255,255,0.5);border-radius:20px;background:rgba(255,255,255,0.15);color:#fff;font-size:0.76rem;cursor:pointer;"></button>
+    <div class="container">
+    <h1>🪪 Passport Photo Maker</h1>
+
+    <div class="steps">
+      <div class="step active" id="s1">1. Type</div>
+      <div class="step" id="s2">2. Crop</div>
+      <div class="step" id="s3">3. Background</div>
+      <div class="step" id="s4">4. Beautify</div>
+      <div class="step" id="s5">5. Export</div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="panel active" id="panel1">
+      <h2>Choose Passport Type</h2>
+      <div class="type-grid">
+        <div class="type-card selected" data-w="35" data-h="45" data-label="India (35×45mm)">
+          <span class="flag">🇮🇳</span><strong>India</strong><small>35 × 45 mm</small>
+        </div>
+        <div class="type-card" data-w="50" data-h="50" data-label="USA (50×50mm)">
+          <span class="flag">🇺🇸</span><strong>USA</strong><small>50 × 50 mm</small>
+        </div>
+        <div class="type-card" data-w="35" data-h="45" data-label="UK (35×45mm)">
+          <span class="flag">🇬🇧</span><strong>UK</strong><small>35 × 45 mm</small>
+        </div>
+        <div class="type-card" data-w="35" data-h="45" data-label="EU (35×45mm)">
+          <span class="flag">🇪🇺</span><strong>EU</strong><small>35 × 45 mm</small>
+        </div>
+        <div class="type-card" data-w="40" data-h="60" data-label="China (40×60mm)">
+          <span class="flag">🇨🇳</span><strong>China</strong><small>40 × 60 mm</small>
+        </div>
+        <div class="type-card" data-w="35" data-h="45" data-label="Canada (35×45mm)">
+          <span class="flag">🇨🇦</span><strong>Canada</strong><small>35 × 45 mm</small>
+        </div>
+      </div>
+      <div class="selected-info" id="selectedInfo">Selected: India (35×45mm)</div>
+      <button class="btn" onclick="goTo(2)">Next →</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="panel" id="panel2">
+      <h2>Upload & Crop Photo</h2>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" accept="image/*" hidden/>
+        <p>📁 Click or drag to upload photo</p>
+        <button class="btn outline" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">Choose File</button>
+      </div>
+      <div id="cropSection" style="display:none">
+        <div class="crop-wrapper">
+          <canvas id="cropCanvas"></canvas>
+          <canvas id="guideCanvas"></canvas>
+          <div id="cropBox">
+            <div class="handle tl"></div>
+            <div class="handle tr"></div>
+            <div class="handle bl"></div>
+            <div class="handle br"></div>
+          </div>
+        </div>
+        <div class="rotate-controls">
+          <button class="btn outline small" onclick="rotateby(-90)" title="Rotate 90° left">↺ 90°</button>
+          <button class="btn outline small" onclick="rotateby(-1)" title="Rotate 1° left">↺ 1°</button>
+          <input type="range" id="rotateSlider" min="-45" max="45" value="0" step="0.5" oninput="rotateToAngle(+this.value)"/>
+          <span id="rotateVal">0°</span>
+          <button class="btn outline small" onclick="rotateby(1)" title="Rotate 1° right">↻ 1°</button>
+          <button class="btn outline small" onclick="rotateby(90)" title="Rotate 90° right">↻ 90°</button>
+          <button class="btn outline small" onclick="rotateby(0, true)" title="Reset rotation">Reset</button>
+        </div>
+        <p class="hint">🟡 Align face inside oval · chin at chin line · shoulders at shoulder line</p>
+        <div class="btn-row">
+          <button class="btn outline" onclick="goTo(1)">← Back</button>
+          <button class="btn" onclick="applyCrop()">Crop & Continue →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="panel" id="panel3">
+      <h2>Remove & Set Background</h2>
+      <div class="bg-section">
+        <div class="preview-box">
+          <canvas id="bgCanvas"></canvas>
+        </div>
+        <div class="bg-controls">
+          <p><strong>Background Color</strong></p>
+          <div class="color-swatches">
+            <div class="swatch selected" style="background:#ffffff" data-color="#ffffff"></div>
+            <div class="swatch" style="background:#4a90d9" data-color="#4a90d9"></div>
+            <div class="swatch" style="background:#e8f4f8" data-color="#e8f4f8"></div>
+            <div class="swatch" style="background:#f5f5dc" data-color="#f5f5dc"></div>
+            <div class="swatch" style="background:#d4edda" data-color="#d4edda"></div>
+            <div class="swatch custom-swatch">
+              <input type="color" id="customColor" value="#ffffff" title="Custom color"/>
+            </div>
+          </div>
+          <div class="border-section">
+            <p><strong>Photo Border</strong></p>
+            <div class="border-controls">
+              <label class="border-toggle">
+                <input type="checkbox" id="borderEnabled" onchange="applyBgColor()"/> Add Border
+              </label>
+              <div class="border-options" id="borderOptions" style="display:none">
+                <div class="border-color-row">
+                  <span>Color:</span>
+                  <div class="color-swatches" style="margin:0">
+                    <div class="swatch b-swatch selected" style="background:#000000" data-bcolor="#000000"></div>
+                    <div class="swatch b-swatch" style="background:#ffffff" data-bcolor="#ffffff"></div>
+                    <div class="swatch b-swatch" style="background:#4a90d9" data-bcolor="#4a90d9"></div>
+                    <div class="swatch b-swatch" style="background:#e53e3e" data-bcolor="#e53e3e"></div>
+                    <div class="swatch b-swatch" style="background:#d4a017" data-bcolor="#d4a017"></div>
+                    <div class="swatch custom-swatch b-swatch">
+                      <input type="color" id="borderCustomColor" value="#000000" title="Custom border color"/>
+                    </div>
+                  </div>
+                </div>
+                <label>Size <span id="borderSizeVal">3</span>px
+                  <input type="range" id="borderSize" min="1" max="20" value="3" oninput="document.getElementById('borderSizeVal').textContent=this.value; applyBgColor()"/>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="api-section">
+            <p><strong>AI Background Removal</strong></p>
+            <div class="api-btn-row">
+              <button class="btn outline small" onclick="removeBgAPI()">✨ Remove BG (AI)</button>
+              <button class="btn outline small" onclick="removeBgCanvas()">Auto Remove</button>
+            </div>
+            <p class="api-status" id="apiStatus"></p>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn outline" onclick="goTo(2)">← Back</button>
+        <button class="btn" onclick="goTo(4)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="panel" id="panel4">
+      <h2>Beautify Photo</h2>
+      <div class="beautify-section">
+        <canvas id="beautifyCanvas"></canvas>
+        <div class="sliders">
+
+          <!-- Auto Beauty Level -->
+          <div class="beauty-level-box">
+            <div class="beauty-level-header">
+              <span>✨ Auto Beauty Level</span>
+              <span class="beauty-badge" id="beautyBadge">OFF</span>
+            </div>
+            <div class="beauty-level-track">
+              <input type="range" id="beautyLevel" min="0" max="10" value="0" step="1" oninput="applyBeautyLevel(+this.value)"/>
+              <div class="beauty-ticks">
+                <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+              </div>
+            </div>
+            <p class="beauty-desc" id="beautyDesc">Drag to apply automatic passport-grade enhancement</p>
+          </div>
+
+          <div class="divider">— Manual Controls —</div>
+
+          <label>Brightness <span id="brightnessVal">100</span>%
+            <input type="range" id="brightness" min="50" max="150" value="100" oninput="applyFilters()"/>
+          </label>
+          <label>Contrast <span id="contrastVal">100</span>%
+            <input type="range" id="contrast" min="50" max="150" value="100" oninput="applyFilters()"/>
+          </label>
+          <label>Saturation <span id="saturationVal">100</span>%
+            <input type="range" id="saturation" min="0" max="200" value="100" oninput="applyFilters()"/>
+          </label>
+          <label>Sharpness <span id="sharpnessVal">0</span>
+            <input type="range" id="sharpness" min="0" max="5" value="0" step="1" oninput="applyFilters()"/>
+          </label>
+          <label>Skin Smooth <span id="smoothVal">0</span>
+            <input type="range" id="smooth" min="0" max="10" value="0" oninput="applyFilters()"/>
+          </label>
+          <label>Quality Enhance <span id="qualityVal">0</span>
+            <input type="range" id="quality" min="0" max="5" value="0" step="1" oninput="applyFilters()"/>
+          </label>
+          <button class="btn outline small" onclick="resetFilters()">Reset All</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn outline" onclick="goTo(3)">← Back</button>
+        <button class="btn" onclick="goTo(5)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="panel" id="panel5">
+      <h2>Export Photo</h2>
+
+      <!-- Single photo export -->
+      <div class="export-card">
+        <div class="export-card-title">📷 Single Photo</div>
+        <div class="export-section">
+          <canvas id="exportCanvas"></canvas>
+          <div class="export-info" id="exportInfo"></div>
+          <div class="export-options">
+            <label>Format:
+              <select id="exportFormat">
+                <option value="image/jpeg">JPEG</option>
+                <option value="image/png">PNG</option>
+              </select>
+            </label>
+            <label>Resolution:
+              <select id="exportRes">
+                <option value="1">300 DPI (Standard)</option>
+                <option value="2">600 DPI (HD)</option>
+                <option value="4">1200 DPI (4K)</option>
+                <option value="8" selected>2400 DPI (8K Ultra)</option>
+              </select>
+            </label>
+          </div>
+          <div class="btn-row">
+            <button class="btn green" onclick="exportPhoto()">⬇ Download 8K Photo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4x6 sheet export -->
+      <div class="export-card sheet-card">
+        <div class="export-card-title">🖨️ 4×6 Photo Paper Sheet <span class="sheet-badge">8 photos</span></div>
+        <p class="sheet-desc">8 passport photos arranged in 4 columns × 2 rows on a <strong>landscape 4×6 inch</strong> (15×10cm) print sheet. Preview at 300 DPI · export up to 8K (4800×3200px).</p>
+        <div class="sheet-preview-wrap">
+          <canvas id="sheetCanvas"></canvas>
+        </div>
+        <div class="sheet-info" id="sheetInfo"></div>
+        <div class="export-options">
+          <label>Sheet background:
+            <select id="sheetBg">
+              <option value="#ffffff">White</option>
+              <option value="#f0f0f0">Light Grey</option>
+              <option value="#fffef0">Cream</option>
+            </select>
+          </label>
+          <label>Gutter:
+            <select id="sheetGutter">
+              <option value="2">2mm (tight)</option>
+              <option value="4" selected>4mm (standard)</option>
+              <option value="6">6mm (wide)</option>
+            </select>
+          </label>
+          <label>Export DPI:
+            <select id="sheetDpi">
+              <option value="300">300 DPI (Standard)</option>
+              <option value="600">600 DPI (HD)</option>
+              <option value="800" selected>800 DPI (8K)</option>
+            </select>
+          </label>
+        </div>
+        <div class="btn-row">
+          <button class="btn outline" onclick="previewSheet()">🔄 Refresh Preview</button>
+          <button class="btn green" onclick="downloadSheet()">⬇ Download Sheet (8K)</button>
+        </div>
+      </div>
+
+      <!-- 4 passport + 6 stamp size combo sheet -->
+      <div class="export-card combo-card">
+        <div class="export-card-title">🎨 Combo A <span class="sheet-badge combo-badge">4 Passport + 6 Stamp</span></div>
+        <p class="sheet-desc">
+          Left: <strong>4 Passport</strong> (35×45mm) 2×2 · Right: <strong>6 Stamp</strong> (25×30mm) 2×3
+        </p>
+        <div class="sheet-preview-wrap">
+          <canvas id="comboCanvas"></canvas>
+        </div>
+        <div class="sheet-info" id="comboInfo"></div>
+        <div class="export-options">
+          <label>Gutter:
+            <select id="comboGutter">
+              <option value="2">2mm</option>
+              <option value="4" selected>4mm</option>
+              <option value="6">6mm</option>
+            </select>
+          </label>
+          <label>Export DPI:
+            <select id="comboDpi">
+              <option value="300">300 DPI</option>
+              <option value="600">600 DPI</option>
+              <option value="800" selected>800 DPI (8K)</option>
+            </select>
+          </label>
+        </div>
+        <div class="btn-row">
+          <button class="btn outline" onclick="previewCombo()">🔄 Refresh</button>
+          <button class="btn green" onclick="downloadCombo()">⬇ Download Combo A</button>
+        </div>
+      </div>
+
+      <!-- Triple combo: 4 passport + 4 stamp + 4 token -->
+      <div class="export-card combo-card" style="border-color:#f6ad55">
+        <div class="export-card-title">🎨 Combo B <span class="sheet-badge combo-badge">4 Passport + 4 Stamp + 4 Token</span></div>
+        <p class="sheet-desc">
+          <strong>4 Passport</strong> (35×45mm) · <strong>4 Stamp</strong> (25×30mm) · <strong>4 Token</strong> (20×25mm) — 12 photos, 3 strips side by side, all scaled to fit sheet
+        </p>
+        <div class="sheet-preview-wrap">
+          <canvas id="tripleCanvas"></canvas>
+        </div>
+        <div class="sheet-info" id="tripleInfo"></div>
+        <div class="export-options">
+          <label>Gutter:
+            <select id="tripleGutter">
+              <option value="2">2mm</option>
+              <option value="4" selected>4mm</option>
+              <option value="6">6mm</option>
+            </select>
+          </label>
+          <label>Export DPI:
+            <select id="tripleDpi">
+              <option value="300">300 DPI</option>
+              <option value="600">600 DPI</option>
+              <option value="800" selected>800 DPI (8K)</option>
+            </select>
+          </label>
+        </div>
+        <div class="btn-row">
+          <button class="btn outline" onclick="previewTriple()">🔄 Refresh</button>
+          <button class="btn green" onclick="downloadTriple()">⬇ Download Combo B</button>
+        </div>
+      </div>
+
+      <div class="btn-row" style="justify-content:flex-start; margin-top:8px">
+        <button class="btn outline" onclick="goTo(4)">← Back</button>
+      </div>
+    </div>
+  </div><!-- /appRoot -->
+
+  <script src="app.js"></script>
+  <script type="module" src="auth.js"></script>
+</body>
+</html>
