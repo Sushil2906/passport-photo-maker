@@ -54,12 +54,87 @@
         <div class="type-card" data-w="40" data-h="60" data-label="China (40×60mm)">
           <span class="flag">🇨🇳</span><strong>China</strong><small>40 × 60 mm</small>
         </div>
-        <div class="type-card" data-w="35" data-h="45" data-label="Canada (35×45mm)">
+<div class="type-card" data-w="35" data-h="45" data-label="Canada (35×45mm)">
           <span class="flag">🇨🇦</span><strong>Canada</strong><small>35 × 45 mm</small>
+        </div>
+        <div class="type-card" data-type="idcard" data-w="85.6" data-h="54" data-label="ID Card (PAN/Aadhaar 85.6×54mm)">
+          <span class="flag">🪪</span><strong>ID Card</strong><small>PAN/Aadhaar Front+Back</small>
         </div>
       </div>
       <div class="selected-info" id="selectedInfo">Selected: India (35×45mm)</div>
       <button class="btn" onclick="goTo(2)">Next →</button>
+    </div>
+
+    <!-- Step 2b: ID Card Dual Crop -->
+    <div class="panel" id="panel2b" style="display:none">
+      <h2>ID Card Cropper (85.6×54mm)</h2>
+      <p class="hint" style="margin-bottom:24px">Upload & crop front side (top) then back side (bottom) of PAN/Aadhaar card</p>
+      <div class="dual-crop">
+        <!-- Front -->
+        <div class="crop-side">
+          <h3>🟢 Front Side</h3>
+          <div class="upload-area" id="frontUploadArea">
+            <input type="file" id="frontFileInput" accept="image/*" hidden/>
+            <p>📁 Upload front</p>
+            <button class="btn outline" onclick="event.stopPropagation(); document.getElementById('frontFileInput').click()">Choose Front</button>
+          </div>
+          <div id="frontCropSection" style="display:none">
+            <div class="crop-wrapper">
+              <canvas id="frontCropCanvas"></canvas>
+              <canvas id="frontGuideCanvas"></canvas>
+              <div id="frontCropBox">
+                <div class="handle tl"></div>
+                <div class="handle tr"></div>
+                <div class="handle bl"></div>
+                <div class="handle br"></div>
+              </div>
+            </div>
+            <div class="rotate-controls">
+              <button class="btn outline small" onclick="idRotateFront(-90)">↺ 90°</button>
+              <button class="btn outline small" onclick="idRotateFront(-1)">↺ 1°</button>
+              <input type="range" id="frontRotateSlider" min="-45" max="45" value="0" step="0.5" oninput="idRotateFrontTo(+this.value)"/>
+              <span id="frontRotateVal">0°</span>
+              <button class="btn outline small" onclick="idRotateFront(1)">↻ 1°</button>
+              <button class="btn outline small" onclick="idRotateFront(90)">↻ 90°</button>
+              <button class="btn outline small" onclick="idRotateFront(0, true)">Reset</button>
+            </div>
+          </div>
+        </div>
+        <!-- Back -->
+        <div class="crop-side">
+          <h3>🔴 Back Side</h3>
+          <div class="upload-area" id="backUploadArea">
+            <input type="file" id="backFileInput" accept="image/*" hidden/>
+            <p>📁 Upload back</p>
+            <button class="btn outline" onclick="event.stopPropagation(); document.getElementById('backFileInput').click()">Choose Back</button>
+          </div>
+          <div id="backCropSection" style="display:none">
+            <div class="crop-wrapper">
+              <canvas id="backCropCanvas"></canvas>
+              <canvas id="backGuideCanvas"></canvas>
+              <div id="backCropBox">
+                <div class="handle tl"></div>
+                <div class="handle tr"></div>
+                <div class="handle bl"></div>
+                <div class="handle br"></div>
+              </div>
+            </div>
+            <div class="rotate-controls">
+              <button class="btn outline small" onclick="idRotateBack(-90)">↺ 90°</button>
+              <button class="btn outline small" onclick="idRotateBack(-1)">↺ 1°</button>
+              <input type="range" id="backRotateSlider" min="-45" max="45" value="0" step="0.5" oninput="idRotateBackTo(+this.value)"/>
+              <span id="backRotateVal">0°</span>
+              <button class="btn outline small" onclick="idRotateBack(1)">↻ 1°</button>
+              <button class="btn outline small" onclick="idRotateBack(90)">↻ 90°</button>
+              <button class="btn outline small" onclick="idRotateBack(0, true)">Reset</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:24px">
+        <button class="btn outline" onclick="goTo(1)">← Back</button>
+        <button class="btn" onclick="applyIDCrops()">✅ Crop Both & Continue →</button>
+      </div>
     </div>
 
     <!-- Step 2 -->
@@ -145,10 +220,11 @@
           </div>
           <div class="api-section">
             <p><strong>AI Background Removal</strong></p>
-            <div class="api-btn-row">
+<div class="api-btn-row">
               <button class="btn outline small" onclick="removeBgRMBG()">⚡ RMBG (Fast)</button>
               <button class="btn outline small" onclick="removeBgAPI()">✨ Remove BG (AI)</button>
               <button class="btn outline small" onclick="removeBgCanvas()">Auto Remove</button>
+              <button class="btn outline small" onclick="openManualEditor()">🖌️ Manual Editor</button>
             </div>
             <p class="api-status" id="apiStatus"></p>
           </div>
@@ -157,6 +233,35 @@
       <div class="btn-row">
         <button class="btn outline" onclick="goTo(2)">← Back</button>
         <button class="btn" onclick="goTo(4)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Manual BG Editor Modal (Photoshop-style) -->
+    <div id="manualEditorModal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="ed-header">
+          <div class="ed-tools">
+            <button class="ed-tool-btn active" data-tool="wand" title="Magic Wand: Click background to select">✨ Wand</button>
+            <button class="ed-tool-btn" data-tool="erase" title="Erase Brush: Remove foreground">🧽 Erase</button>
+            <button class="ed-tool-btn" data-tool="restore" title="Restore Brush: Paint back original">🔄 Restore</button>
+          </div>
+          <div class="ed-controls">
+            <label>Tol <span id="tolVal">40</span>
+              <input type="range" id="tolSlider" min="10" max="100" value="40" step="5" oninput="document.getElementById('tolVal').textContent=this.value; manualEditor.tolerance=this.value"/>
+            </label>
+            <label>Size <span id="sizeVal">20</span>
+              <input type="range" id="sizeSlider" min="5" max="50" value="20" step="1" oninput="document.getElementById('sizeVal').textContent=this.value; manualEditor.brushSize=this.value"/>
+            </label>
+          </div>
+        </div>
+        <div class="ed-canvas-wrap">
+          <canvas id="editorCanvas"></canvas>
+        </div>
+        <div class="ed-buttons">
+          <button class="btn outline small" onclick="editorUndo()">↺ Undo All</button>
+          <button class="btn green small" onclick="applyManualEditor()">✅ Apply to Photo</button>
+          <button class="btn outline small" onclick="closeManualEditor()">✕ Close</button>
+        </div>
       </div>
     </div>
 
@@ -344,11 +449,45 @@
         </div>
       </div>
 
+      <!-- ID Card 4x6 Sheet Export -->
+      <div class="export-card idcard-card" style="border-color:#f56565">
+        <div class="export-card-title">🪪 ID Card 4×6 Sheet <span class="sheet-badge" style="background:linear-gradient(135deg,#f56565,#c53030);color:#fff">Front+Back</span></div>
+        <p class="sheet-desc" style="color:#c53030">Front side (top half) + Back side (bottom half) on landscape 4×6 inch paper with bold borders. Export up to 8K (4800×3200px).</p>
+        <div class="sheet-preview-wrap">
+          <canvas id="idSheetCanvas"></canvas>
+        </div>
+        <div class="sheet-info" id="idSheetInfo"></div>
+        <div class="export-options">
+          <label>Sheet background:
+            <select id="idSheetBg">
+              <option value="#ffffff" selected>White</option>
+              <option value="#f0f0f0">Light Grey</option>
+              <option value="#fffef0">Cream</option>
+            </select>
+          </label>
+          <label>Border Size: <span id="idBorderSizeVal">8</span>px
+            <input type="range" id="idBorderSize" min="4" max="20" value="8" step="1" onchange="previewIDSheet()"/>
+          </label>
+          <label>Export DPI:
+            <select id="idSheetDpi">
+              <option value="300">300 DPI</option>
+              <option value="600">600 DPI (HD)</option>
+              <option value="1200" selected>1200 DPI (4K)</option>
+              <option value="2400">2400 DPI (8K)</option>
+            </select>
+          </label>
+        </div>
+        <div class="btn-row">
+          <button class="btn outline" onclick="previewIDSheet()">🔄 Refresh Preview</button>
+          <button class="btn green" onclick="downloadIDSheet()">⬇ Download ID Sheet (4K/8K)</button>
+        </div>
+      </div>
+
       <div class="btn-row" style="justify-content:flex-start; margin-top:8px">
         <button class="btn outline" onclick="goTo(4)">← Back</button>
       </div>
     </div>
-  </div><!-- /appRoot -->
+  </div><!-- /appRoot -->  
 
   <script src="app.js"></script>
   <script type="module" src="auth.js"></script>

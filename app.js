@@ -8,7 +8,9 @@ function saveApiKey(key) { localStorage.setItem('removebg_key', key); }
 
 // ── State ───────────────────────────────────────────────────────────────────
 const state = {
+  mode: 'passport',  // 'passport' or 'idcard'
   passportW: 35, passportH: 45, passportLabel: 'India (35×45mm)',
+  // Passport mode
   originalImage: null,
   croppedCanvas: null,
   removedCanvas: null,  // bg-removed version, null if not done
@@ -19,7 +21,26 @@ const state = {
   borderSize: 3,
   finalCanvas: null,
   rotationDeg: 0,
+  // ID Card mode
+  idFrontImage: null,
+  idFrontOriginalURL: null,
+  idFrontCanvas: null,
+  idFrontRemovedCanvas: null,
+  idFrontBgCanvas: null,
+  idFrontRotationDeg: 0,
+  idFrontCropState: null,
+  idBackImage: null,
+  idBackOriginalURL: null,
+  idBackCanvas: null,
+  idBackRemovedCanvas: null,
+  idBackBgCanvas: null,
+  idBackRotationDeg: 0,
+  idBackCropState: null,
+  // ID Sheet
+  idBorderSize: 8,
+  idSheetBg: '#ffffff',
 };
+
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 function goTo(n) {
@@ -42,10 +63,34 @@ document.querySelectorAll('.type-card').forEach(card => {
     state.passportH = +card.dataset.h;
     state.passportLabel = card.dataset.label;
     document.getElementById('selectedInfo').textContent = 'Selected: ' + state.passportLabel;
+    
+    // Check for ID card mode
+    if (card.dataset.type === 'idcard') {
+      state.mode = 'idcard';
+      document.getElementById('selectedInfo').textContent += ' - Front + Back on 4x6 sheet';
+      goToID(2);  // Show panel2b
+    }
   });
 });
 
+function goToID(n) {
+  // ID mode navigation - panel2b is index 2 (0-based: panel1=1, panel2b=2, panel2=3...)
+  const idPanelMap = {2: 'panel2b', 3: 'panel3', 4: 'panel4', 5: 'panel5'};
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(idPanelMap[n]).classList.add('active');
+  
+  // Steps: insert 'ID Crop' as step 2 when in ID mode
+  const steps = document.querySelectorAll('.step');
+  steps[1].textContent = state.mode === 'idcard' ? '2. ID Crop' : '2. Crop';
+  steps[1].classList.toggle('active', n === 2);
+  
+  if (n === 3 && (state.idFrontCanvas || state.idBackCanvas)) initIDBgStep();
+  if (n === 4 && state.idFrontBgCanvas) initIDBeautifyStep();
+  if (n === 5) initIDExportStep();
+}
+
 // ── Step 2: Upload & Crop ───────────────────────────────────────────────────
+// Passport mode
 const fileInput  = document.getElementById('fileInput');
 const uploadArea = document.getElementById('uploadArea');
 const cropSection = document.getElementById('cropSection');
@@ -53,16 +98,54 @@ const cropCanvas = document.getElementById('cropCanvas');
 const guideCanvas = document.getElementById('guideCanvas');
 const cropBox    = document.getElementById('cropBox');
 
+// ID Card mode
+const frontUploadArea = document.getElementById('frontUploadArea');
+const frontFileInput = document.getElementById('frontFileInput');
+const frontCropSection = document.getElementById('frontCropSection');
+const frontCropCanvas = document.getElementById('frontCropCanvas');
+const frontGuideCanvas = document.getElementById('frontGuideCanvas');
+const frontCropBox = document.getElementById('frontCropBox');
+
+const backUploadArea = document.getElementById('backUploadArea');
+const backFileInput = document.getElementById('backFileInput');
+const backCropSection = document.getElementById('backCropSection');
+const backCropCanvas = document.getElementById('backCropCanvas');
+const backGuideCanvas = document.getElementById('backGuideCanvas');
+const backCropBox = document.getElementById('backCropBox');
+
+// Passport upload events
 uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag'); });
 uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag'));
 uploadArea.addEventListener('drop', e => { e.preventDefault(); uploadArea.classList.remove('drag'); loadFile(e.dataTransfer.files[0]); });
 uploadArea.addEventListener('click', e => {
-  if (e.target === fileInput) return; // prevent re-trigger
+  if (e.target === fileInput) return;
   fileInput.click();
 });
 fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
 
-let cropState = {};
+// ID Front upload events
+frontUploadArea.addEventListener('dragover', e => { e.preventDefault(); frontUploadArea.classList.add('drag'); });
+frontUploadArea.addEventListener('dragleave', () => frontUploadArea.classList.remove('drag'));
+frontUploadArea.addEventListener('drop', e => { e.preventDefault(); frontUploadArea.classList.remove('drag'); loadIDFrontFile(e.dataTransfer.files[0]); });
+frontUploadArea.addEventListener('click', e => {
+  if (e.target === frontFileInput) return;
+  frontFileInput.click();
+});
+frontFileInput.addEventListener('change', () => loadIDFrontFile(frontFileInput.files[0]));
+
+// ID Back upload events
+backUploadArea.addEventListener('dragover', e => { e.preventDefault(); backUploadArea.classList.add('drag'); });
+backUploadArea.addEventListener('dragleave', () => backUploadArea.classList.remove('drag'));
+backUploadArea.addEventListener('drop', e => { e.preventDefault(); backUploadArea.classList.remove('drag'); loadIDBackFile(e.dataTransfer.files[0]); });
+backUploadArea.addEventListener('click', e => {
+  if (e.target === backFileInput) return;
+  backFileInput.click();
+});
+backFileInput.addEventListener('change', () => loadIDBackFile(backFileInput.files[0]));
+
+let cropState = {};  // Passport
+let idFrontCropState = {};  // ID Front
+let idBackCropState = {};   // ID Back
 
 function loadFile(file) {
   if (!file) return;
@@ -77,14 +160,40 @@ function loadFile(file) {
   img.src = url;
 }
 
+function loadIDFrontFile(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    state.idFrontImage = img;
+    state.idFrontOriginalURL = url;
+    setupIDFrontCrop(img);
+    frontUploadArea.style.display = 'none';
+    frontCropSection.style.display = 'block';
+  };
+  img.src = url;
+}
+
+function loadIDBackFile(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    state.idBackImage = img;
+    state.idBackOriginalURL = url;
+    setupIDBackCrop(img);
+    backUploadArea.style.display = 'none';
+    backCropSection.style.display = 'block';
+  };
+  img.src = url;
+}
+
+// Hide upload/show crop is now in loadFile (per side)
 function setupCrop(img) {
   state.rotationDeg = 0;
   document.getElementById('rotateSlider').value = 0;
   document.getElementById('rotateVal').textContent = '0°';
   redrawRotated();
-
-  uploadArea.style.display = 'none';
-  cropSection.style.display = 'block';
   setupCropDrag();
 }
 
@@ -152,6 +261,67 @@ function redrawRotated() {
   }
 
   updateCropBox();
+}
+
+function redrawIDFrontRotated() {
+  const img = state.idFrontImage;
+  const rad = state.idFrontRotationDeg * Math.PI / 180;
+  const sin = Math.abs(Math.sin(rad)), cos = Math.abs(Math.cos(rad));
+
+  const natW = img.width * cos + img.height * sin;
+  const natH = img.width * sin + img.height * cos;
+
+  const containerW = frontCropCanvas.parentElement.clientWidth || 340;
+  const maxW = Math.min(340, containerW);
+  const maxH = 280;
+  const scale = Math.min(maxW / natW, maxH / natH, 1);
+
+  const cw = Math.round(natW * scale);
+  const ch = Math.round(natH * scale);
+
+  const hadCrop = idFrontCropState.cw && idFrontCropState.ch;
+  const fracX = hadCrop ? idFrontCropState.x / idFrontCropState.cw : null;
+  const fracY = hadCrop ? idFrontCropState.y / idFrontCropState.ch : null;
+  const fracW = hadCrop ? idFrontCropState.w / idFrontCropState.cw : null;
+  const fracH = hadCrop ? idFrontCropState.h / idFrontCropState.ch : null;
+
+  frontCropCanvas.width = cw;
+  frontCropCanvas.height = ch;
+  frontCropCanvas.style.width = cw + 'px';
+  frontCropCanvas.style.height = ch + 'px';
+
+  const ctx = frontCropCanvas.getContext('2d');
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.save();
+  ctx.translate(cw / 2, ch / 2);
+  ctx.rotate(rad);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, -img.width * scale / 2, -img.height * scale / 2, img.width * scale, img.height * scale);
+  ctx.restore();
+
+  state.idFrontDisplayScale = scale;
+
+  const aspect = state.passportW / state.passportH;  // Reuse passportW/H for ID card aspect
+
+  if (hadCrop) {
+    let bw = Math.round(fracW * cw);
+    let bh = Math.round(bw / aspect);
+    let bx = Math.round(fracX * cw);
+    let by = Math.round(fracY * ch);
+    bx = Math.max(0, Math.min(cw - bw, bx));
+    by = Math.max(0, Math.min(ch - bh, by));
+    idFrontCropState = { x: bx, y: by, w: bw, h: bh, cw, ch, aspect };
+  } else {
+    let bh = Math.round(ch * 0.80);
+    let bw = Math.round(bh * aspect);
+    if (bw > cw * 0.90) { bw = Math.round(cw * 0.90); bh = Math.round(bw / aspect); }
+    const bx = Math.round((cw - bw) / 2);
+    const by = Math.round((ch - bh) / 2);
+    idFrontCropState = { x: bx, y: by, w: bw, h: bh, cw, ch, aspect };
+  }
+
+  updateIDFrontCropBox();
 }
 
 function rotateby(deg, reset) {
@@ -239,32 +409,27 @@ function drawGuides() {
 }
 
 // ── Crop drag ───────────────────────────────────────────────────────────────
+// Passport drag setup
 function setupCropDrag() {
   let drag = null;
-
   function getCanvasPos(e) {
-    // Canvas pixel == display pixel (1:1), just subtract canvas offset
     const rect = cropCanvas.getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
     return { x: cx - rect.left, y: cy - rect.top };
   }
-
   function onDown(e, type) {
     e.preventDefault();
     const pos = getCanvasPos(e);
     drag = { type, startX: pos.x, startY: pos.y, ...cropState };
   }
-
   cropBox.addEventListener('mousedown', e => onDown(e, 'move'));
   cropBox.addEventListener('touchstart', e => onDown(e, 'move'), { passive: false });
-
   cropBox.querySelectorAll('.handle').forEach(h => {
     const type = h.className.split(' ')[1];
     h.addEventListener('mousedown', e => { e.stopPropagation(); onDown(e, type); });
     h.addEventListener('touchstart', e => { e.stopPropagation(); onDown(e, type); }, { passive: false });
   });
-
   function onMove(e) {
     if (!drag) return;
     e.preventDefault();
@@ -272,7 +437,6 @@ function setupCropDrag() {
     const dx = pos.x - drag.startX, dy = pos.y - drag.startY;
     const { cw, ch, aspect } = cropState;
     let { x, y, w, h } = drag;
-
     if (drag.type === 'move') {
       x = Math.max(0, Math.min(cw - w, x + dx));
       y = Math.max(0, Math.min(ch - h, y + dy));
@@ -289,12 +453,194 @@ function setupCropDrag() {
     cropState = { ...cropState, x, y, w, h };
     updateCropBox();
   }
-
   function onUp() { drag = null; }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
   document.addEventListener('touchmove', onMove, { passive: false });
   document.addEventListener('touchend', onUp);
+}
+
+// ID Front drag setup
+function setupIDFrontCropDrag() {
+  let drag = null;
+  function getCanvasPos(e) {
+    const rect = frontCropCanvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: cx - rect.left, y: cy - rect.top };
+  }
+  function onDown(e, type) {
+    e.preventDefault();
+    const pos = getCanvasPos(e);
+    drag = { type, startX: pos.x, startY: pos.y, ...idFrontCropState };
+  }
+  frontCropBox.addEventListener('mousedown', e => onDown(e, 'move'));
+  frontCropBox.addEventListener('touchstart', e => onDown(e, 'move'), { passive: false });
+  frontCropBox.querySelectorAll('.handle').forEach(h => {
+    const type = h.className.split(' ')[1];
+    h.addEventListener('mousedown', e => { e.stopPropagation(); onDown(e, type); });
+    h.addEventListener('touchstart', e => { e.stopPropagation(); onDown(e, type); }, { passive: false });
+  });
+  function onMove(e) {
+    if (!drag) return;
+    e.preventDefault();
+    const pos = getCanvasPos(e);
+    const dx = pos.x - drag.startX, dy = pos.y - drag.startY;
+    const { cw, ch, aspect } = idFrontCropState;
+    let { x, y, w, h } = drag;
+    if (drag.type === 'move') {
+      x = Math.max(0, Math.min(cw - w, x + dx));
+      y = Math.max(0, Math.min(ch - h, y + dy));
+    } else {
+      let nw = w, nh = h, nx = x, ny = y;
+      if (drag.type === 'br') { nw = Math.max(30, w + dx); nh = Math.round(nw / aspect); }
+      if (drag.type === 'bl') { nw = Math.max(30, w - dx); nh = Math.round(nw / aspect); nx = x + w - nw; }
+      if (drag.type === 'tr') { nw = Math.max(30, w + dx); nh = Math.round(nw / aspect); ny = y + h - nh; }
+      if (drag.type === 'tl') { nw = Math.max(30, w - dx); nh = Math.round(nw / aspect); nx = x + w - nw; ny = y + h - nh; }
+      nx = Math.max(0, nx); ny = Math.max(0, ny);
+      nw = Math.min(nw, cw - nx); nh = Math.min(nh, ch - ny);
+      x = nx; y = ny; w = nw; h = nh;
+    }
+    idFrontCropState = { ...idFrontCropState, x, y, w, h };
+    updateIDFrontCropBox();
+  }
+  function onUp() { drag = null; }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onUp);
+}
+
+// Similar for ID Back (copy pattern)
+function setupIDBackCropDrag() {
+  let drag = null;
+  function getCanvasPos(e) {
+    const rect = backCropCanvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: cx - rect.left, y: cy - rect.top };
+  }
+  function onDown(e, type) {
+    e.preventDefault();
+    const pos = getCanvasPos(e);
+    drag = { type, startX: pos.x, startY: pos.y, ...idBackCropState };
+  }
+  backCropBox.addEventListener('mousedown', e => onDown(e, 'move'));
+  backCropBox.addEventListener('touchstart', e => onDown(e, 'move'), { passive: false });
+  backCropBox.querySelectorAll('.handle').forEach(h => {
+    const type = h.className.split(' ')[1];
+    h.addEventListener('mousedown', e => { e.stopPropagation(); onDown(e, type); });
+    h.addEventListener('touchstart', e => { e.stopPropagation(); onDown(e, type); }, { passive: false });
+  });
+  function onMove(e) {
+    if (!drag) return;
+    e.preventDefault();
+    const pos = getCanvasPos(e);
+    const dx = pos.x - drag.startX, dy = pos.y - drag.startY;
+    const { cw, ch, aspect } = idBackCropState;
+    let { x, y, w, h } = drag;
+    if (drag.type === 'move') {
+      x = Math.max(0, Math.min(cw - w, x + dx));
+      y = Math.max(0, Math.min(ch - h, y + dy));
+    } else {
+      let nw = w, nh = h, nx = x, ny = y;
+      if (drag.type === 'br') { nw = Math.max(30, w + dx); nh = Math.round(nw / aspect); }
+      if (drag.type === 'bl') { nw = Math.max(30, w - dx); nh = Math.round(nw / aspect); nx = x + w - nw; }
+      if (drag.type === 'tr') { nw = Math.max(30, w + dx); nh = Math.round(nw / aspect); ny = y + h - nh; }
+      if (drag.type === 'tl') { nw = Math.max(30, w - dx); nh = Math.round(nw / aspect); nx = x + w - nw; ny = y + h - nh; }
+      nx = Math.max(0, nx); ny = Math.max(0, ny);
+      nw = Math.min(nw, cw - nx); nh = Math.min(nh, ch - ny);
+      x = nx; y = ny; w = nw; h = nh;
+    }
+    idBackCropState = { ...idBackCropState, x, y, w, h };
+    updateIDBackCropBox();
+  }
+  function onUp() { drag = null; }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onUp);
+}
+
+function applyIDCrops() {
+  // Require both front and back
+  if (!state.idFrontImage || !state.idBackImage) {
+    alert('Please upload and crop both front and back sides.');
+    return;
+  }
+  
+  // Crop front
+  const { x: fx, y: fy, w: fw, h: fh } = idFrontCropState;
+  const finvScale = 1 / state.idFrontDisplayScale;
+  const fimg = state.idFrontImage;
+  const frad = state.idFrontRotationDeg * Math.PI / 180;
+  const fsin = Math.abs(Math.sin(frad)), fcos = Math.abs(Math.cos(frad));
+  const ffullW = Math.round(fimg.width * fcos + fimg.height * fsin);
+  const ffullH = Math.round(fimg.width * fsin + fimg.height * fcos);
+  const ffullCanvas = document.createElement('canvas');
+  ffullCanvas.width = ffullW; ffullCanvas.height = ffullH;
+  const ffctx = ffullCanvas.getContext('2d');
+  ffctx.save();
+  ffctx.translate(ffullW / 2, ffullH / 2);
+  ffctx.rotate(frad);
+  ffctx.imageSmoothingEnabled = true;
+  ffctx.imageSmoothingQuality = 'high';
+  ffctx.drawImage(fimg, -fimg.width / 2, -fimg.height / 2);
+  ffctx.restore();
+  const fcx = Math.round(fx * finvScale);
+  const fcy = Math.round(fy * finvScale);
+  const fcw = Math.round(fw * finvScale);
+  const fch = Math.round(fh * finvScale);
+  const ffrontC = document.createElement('canvas');
+  ffrontC.width = fcw; ffrontC.height = fch;
+  const ffctx2 = ffrontC.getContext('2d');
+  ffctx2.imageSmoothingEnabled = true;
+  ffctx2.imageSmoothingQuality = 'high';
+  ffctx2.drawImage(ffullCanvas, fcx, fcy, fcw, fch, 0, 0, fcw, fch);
+  state.idFrontCanvas = ffrontC;
+
+  // Crop back (similar)
+  const { x: bx, y: by, w: bw, h: bh } = idBackCropState;
+  const binvScale = 1 / state.idBackDisplayScale;
+  const bimg = state.idBackImage;
+  const brad = state.idBackRotationDeg * Math.PI / 180;
+  const bsin = Math.abs(Math.sin(brad)), bcos = Math.abs(Math.cos(brad));
+  const bfullW = Math.round(bimg.width * bcos + bimg.height * bsin);
+  const bfullH = Math.round(bimg.width * bsin + bimg.height * bcos);
+  const bfullCanvas = document.createElement('canvas');
+  bfullCanvas.width = bfullW; bfullCanvas.height = bfullH;
+  const bfctx = bfullCanvas.getContext('2d');
+  bfctx.save();
+  bfctx.translate(bfullW / 2, bfullH / 2);
+  bfctx.rotate(brad);
+  bfctx.imageSmoothingEnabled = true;
+  bfctx.imageSmoothingQuality = 'high';
+  bfctx.drawImage(bimg, -bimg.width / 2, -bimg.height / 2);
+  bfctx.restore();
+  const bcx = Math.round(bx * binvScale);
+  const bcy = Math.round(by * binvScale);
+  const bcw = Math.round(bw * binvScale);
+  const bch = Math.round(bh * binvScale);
+  const bbackC = document.createElement('canvas');
+  bbackC.width = bcw; bbackC.height = bch;
+  const bfctx2 = bbackC.getContext('2d');
+  bfctx2.imageSmoothingEnabled = true;
+  bfctx2.imageSmoothingQuality = 'high';
+  bfctx2.drawImage(bfullCanvas, bcx, bcy, bcw, bch, 0, 0, bcw, bch);
+  state.idBackCanvas = bbackC;
+
+  goToID(3);
+}
+
+function rotateby(deg, reset) {
+  if (reset) {
+    state.rotationDeg = 0;
+  } else {
+    state.rotationDeg = (state.rotationDeg + deg) % 360;
+  }
+  document.getElementById('rotateSlider').value = Math.max(-45, Math.min(45, state.rotationDeg));
+  document.getElementById('rotateVal').textContent = state.rotationDeg + '°';
+  redrawRotated();
 }
 
 // ── Keyboard arrow movement for crop box ───────────────────────────────────────
@@ -446,19 +792,55 @@ function applyBgColor() {
   renderBgCanvas();
 }
 
-async function removeBgRMBG() {
+async function removeBgAPI() {
+  let key = getApiKey();
   const statusEl = document.getElementById('apiStatus');
-  statusEl.textContent = '⏳ Removing background (RMBG)…';
+  statusEl.textContent = 'Removing background…';
+  statusEl.className = 'api-status loading';
+  
+  if (!state.croppedCanvas) {
+    statusEl.textContent = '❌ No image cropped';
+    statusEl.className = 'api-status error';
+    return;
+  }
+  
   try {
     const blob = await canvasToBlob(state.croppedCanvas);
     const form = new FormData();
-    form.append('file', blob, 'photo.png');
-    const res = await fetch('https://api.rembg.ai/remove', {
-      method: 'POST',
+    form.append('image_file', blob, 'photo.png');
+    form.append('size', 'auto');
+    form.append('format', 'png');
+    
+    const res = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST', 
+      headers: { 'X-Api-Key': key }, 
       body: form
     });
-    if (!res.ok) { statusEl.textContent = '❌ RMBG: ' + res.statusText; return; }
-    const imgBlob = new Blob([await res.arrayBuffer()], { type: 'image/png' });
+    
+    if (res.status === 402) {
+      statusEl.textContent = '🔑 API key expired/needs credits';
+      statusEl.className = 'api-status error';
+      const newKey = prompt('Enter Remove.bg API key (get free credits at https://remove.bg):\nOr press Cancel for Manual Editor');
+      if (newKey) {
+        localStorage.setItem('removebg_key', newKey);
+        return removeBgAPI(); // Retry
+      }
+      return;
+    }
+    
+    if (res.status === 429) {
+      statusEl.textContent = '⏳ Rate limited. Wait 1 min or try Manual Editor';
+      statusEl.className = 'api-status error';
+      return;
+    }
+    
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errText.slice(0,100)}`);
+    }
+    
+    localStorage.setItem('removebg_key', key);
+    const imgBlob = await res.blob();
     const url = URL.createObjectURL(imgBlob);
     const img = new Image();
     img.onload = () => {
@@ -468,46 +850,19 @@ async function removeBgRMBG() {
       state.removedCanvas = c;
       URL.revokeObjectURL(url);
       applyBgColor();
-      statusEl.textContent = '✅ RMBG done!';
+      statusEl.textContent = '✅ AI Background removed perfectly!';
+      statusEl.className = 'api-status success';
+    };
+    img.onerror = () => {
+      statusEl.textContent = '❌ Failed to load result. Try Manual Editor';
+      statusEl.className = 'api-status error';
     };
     img.src = url;
-  } catch (err) { statusEl.textContent = '❌ ' + err.message; }
-}
-
-async function removeBgAPI() {
-  const key = getApiKey();
-  if (!key || key === 'YOUR_REMOVE_BG_API_KEY') {
-    alert('Set your remove.bg API key in app.js (HARDCODED_KEY variable).');
-    return;
+  } catch (err) {
+    statusEl.textContent = `❌ ${err.message.slice(0,60)}... Try Manual Editor ✨`;
+    statusEl.className = 'api-status error';
+    console.error('Remove.bg error:', err);
   }
-  const statusEl = document.getElementById('apiStatus');
-  statusEl.textContent = '⏳ Removing background…';
-  // Use 'preview' size for faster response (~0.2 credits, ~625px)
-  const blob = await canvasToBlob(state.croppedCanvas);
-  const form = new FormData();
-  form.append('image_file', blob, 'photo.png');
-  form.append('size', 'auto');
-  form.append('format', 'png');
-  try {
-    const res = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST', headers: { 'X-Api-Key': key }, body: form
-    });
-    if (!res.ok) { statusEl.textContent = '❌ ' + res.statusText; return; }
-    saveApiKey(key);
-    const imgBlob = new Blob([await res.arrayBuffer()], { type: 'image/png' });
-    const url = URL.createObjectURL(imgBlob);
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.width; c.height = img.height;
-      c.getContext('2d').drawImage(img, 0, 0);
-      state.removedCanvas = c;  // store transparent layer
-      URL.revokeObjectURL(url);
-      applyBgColor();           // composite bg + border on top
-      statusEl.textContent = '✅ Background removed!';
-    };
-    img.src = url;
-  } catch (err) { statusEl.textContent = '❌ ' + err.message; }
 }
 
 function canvasToBlob(canvas) {
@@ -643,16 +998,16 @@ function applyFilters() {
     dc.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
     dc.drawImage(up, 0, 0, c.width, c.height);
     dc.filter = 'none';
-    if (smooth > 0) applyBlurSmooth(dc, c.width, c.height, smooth * 0.5);
-    if (sharpness > 0) applySharpen(dc, c.width, c.height, sharpness);
+    if (smooth > 0) applyBlurSmooth(dc, c.width, c.height, Math.max(0.2, smooth * 0.2)); // Less aggressive blur
+    if (sharpness > 0) applySharpen(dc, c.width, c.height, sharpness * 1.3); // Stronger sharpen after smooth
   } else {
     c.width = src.width; c.height = src.height;
     const ctx = c.getContext('2d');
     ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
     ctx.drawImage(src, 0, 0);
     ctx.filter = 'none';
-    if (smooth > 0) applyBlurSmooth(ctx, c.width, c.height, smooth * 0.5);
-    if (sharpness > 0) applySharpen(ctx, c.width, c.height, sharpness);
+    if (smooth > 0) applyBlurSmooth(ctx, c.width, c.height, Math.max(0.2, smooth * 0.2)); // Less aggressive blur
+    if (sharpness > 0) applySharpen(ctx, c.width, c.height, sharpness * 1.3); // Stronger sharpen after smooth
   }
 
   state.finalCanvas = c;
@@ -1213,4 +1568,210 @@ function downloadTriple() {
   a.href = url;
   a.download = `combo_triple_${label}_${sheet.width}x${sheet.height}.jpg`;
   a.click();
+}
+
+// ── Manual BG Editor (Photoshop-style) ─────────────────────────────────────
+const manualEditor = {
+  canvas: null, ctx: null,
+  tool: 'wand',   // 'wand' | 'erase' | 'restore'
+  brushSize: 20,
+  tolerance: 40,
+  painting: false,
+  scale: 1,
+  workCanvas: null, // full-res working copy with alpha
+};
+
+function openManualEditor() {
+  const modal = document.getElementById('manualEditorModal');
+  modal.style.display = 'flex';
+
+  // Work on a clone of croppedCanvas with alpha
+  const src = state.removedCanvas || state.croppedCanvas;
+  const wc = document.createElement('canvas');
+  wc.width = src.width; wc.height = src.height;
+  wc.getContext('2d').drawImage(src, 0, 0);
+  manualEditor.workCanvas = wc;
+
+  const edCanvas = document.getElementById('editorCanvas');
+  const maxW = Math.min(window.innerWidth - 40, 700);
+  const maxH = window.innerHeight - 200;
+  manualEditor.scale = Math.min(maxW / wc.width, maxH / wc.height, 1);
+  edCanvas.width  = Math.round(wc.width  * manualEditor.scale);
+  edCanvas.height = Math.round(wc.height * manualEditor.scale);
+  edCanvas.style.width  = edCanvas.width  + 'px';
+  edCanvas.style.height = edCanvas.height + 'px';
+  manualEditor.canvas = edCanvas;
+  manualEditor.ctx    = edCanvas.getContext('2d');
+  renderEditorCanvas();
+  setupEditorEvents();
+}
+
+function renderEditorCanvas() {
+  const { ctx, canvas, workCanvas, scale } = manualEditor;
+  // Draw checkerboard for transparency
+  const cw = canvas.width, ch = canvas.height;
+  const sz = 12;
+  for (let y = 0; y < ch; y += sz)
+    for (let x = 0; x < cw; x += sz) {
+      ctx.fillStyle = ((x / sz + y / sz) % 2 === 0) ? '#ccc' : '#fff';
+      ctx.fillRect(x, y, sz, sz);
+    }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(workCanvas, 0, 0, cw, ch);
+}
+
+function setEditorTool(tool) {
+  manualEditor.tool = tool;
+  document.querySelectorAll('.ed-tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+}
+
+function setupEditorEvents() {
+  const c = manualEditor.canvas;
+  // Remove old listeners by cloning
+  const nc = c.cloneNode(true);
+  c.parentNode.replaceChild(nc, c);
+  manualEditor.canvas = nc;
+  manualEditor.ctx    = nc.getContext('2d');
+  renderEditorCanvas();
+
+  // Tool button listeners
+  document.querySelectorAll('.ed-tool-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      setEditorTool(btn.dataset.tool);
+    };
+  });
+
+  function getPos(e) {
+    const rect = nc.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: Math.round((cx - rect.left) / manualEditor.scale),
+      y: Math.round((cy - rect.top)  / manualEditor.scale)
+    };
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    manualEditor.painting = true;
+    const pos = getPos(e);
+    if (manualEditor.tool === 'wand') {
+      floodFill(pos.x, pos.y, manualEditor.tolerance);
+    } else {
+      paintBrush(pos.x, pos.y);
+    }
+  }
+  function onMove(e) {
+    if (!manualEditor.painting || manualEditor.tool === 'wand') return;
+    e.preventDefault();
+    paintBrush(getPos(e).x, getPos(e).y);
+  }
+  function onUp() { manualEditor.painting = false; }
+
+  nc.addEventListener('mousedown', onDown);
+  nc.addEventListener('mousemove', onMove);
+  nc.addEventListener('mouseup', onUp);
+  nc.addEventListener('touchstart', onDown, { passive: false });
+  nc.addEventListener('touchmove', onMove, { passive: false });
+  nc.addEventListener('touchend', onUp);
+}
+
+// Magic Wand — flood fill erase by color similarity
+function floodFill(sx, sy, tolerance) {
+  const wc = manualEditor.workCanvas;
+  const ctx = wc.getContext('2d');
+  const { width: w, height: h } = wc;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+
+  const idx = (sy * w + sx) * 4;
+  const tr = d[idx], tg = d[idx+1], tb = d[idx+2];
+  // Don't fill already transparent pixels
+  if (d[idx+3] === 0) return;
+
+  const visited = new Uint8Array(w * h);
+  const stack = [sx + sy * w];
+  visited[sx + sy * w] = 1;
+
+  while (stack.length) {
+    const p = stack.pop();
+    const x = p % w, y = (p / w) | 0;
+    const i = p * 4;
+    d[i+3] = 0; // erase
+    const neighbors = [p-1, p+1, p-w, p+w];
+    for (const n of neighbors) {
+      const nx = n % w, ny = (n / w) | 0;
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+      if (visited[n]) continue;
+      const ni = n * 4;
+      if (d[ni+3] === 0) continue;
+      const diff = Math.abs(d[ni]-tr) + Math.abs(d[ni+1]-tg) + Math.abs(d[ni+2]-tb);
+      if (diff <= tolerance * 3) {
+        visited[n] = 1;
+        stack.push(n);
+      }
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  renderEditorCanvas();
+}
+
+// Brush erase or restore
+function paintBrush(x, y) {
+  const wc = manualEditor.workCanvas;
+  const ctx = wc.getContext('2d');
+  const r = manualEditor.brushSize;
+  if (manualEditor.tool === 'erase') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+    ctx.fill();
+    ctx.restore();
+  } else if (manualEditor.tool === 'restore') {
+    // Restore from original croppedCanvas
+    const orig = state.croppedCanvas;
+    const origCtx = orig.getContext('2d');
+    const patch = origCtx.getImageData(x - r, y - r, r * 2, r * 2);
+    const wCtx = wc.getContext('2d');
+    // Only restore pixels inside circle
+    const wData = wCtx.getImageData(x - r, y - r, r * 2, r * 2);
+    for (let py = 0; py < r * 2; py++) {
+      for (let px = 0; px < r * 2; px++) {
+        const dx = px - r, dy = py - r;
+        if (dx*dx + dy*dy <= r*r) {
+          const i = (py * r * 2 + px) * 4;
+          wData.data[i]   = patch.data[i];
+          wData.data[i+1] = patch.data[i+1];
+          wData.data[i+2] = patch.data[i+2];
+          wData.data[i+3] = patch.data[i+3];
+        }
+      }
+    }
+    wCtx.putImageData(wData, x - r, y - r);
+  }
+  renderEditorCanvas();
+}
+
+function editorUndo() {
+  // Reset to original
+  const src = state.croppedCanvas;
+  const wc = manualEditor.workCanvas;
+  wc.getContext('2d').clearRect(0, 0, wc.width, wc.height);
+  wc.getContext('2d').drawImage(src, 0, 0);
+  renderEditorCanvas();
+}
+
+function applyManualEditor() {
+  state.removedCanvas = manualEditor.workCanvas;
+  applyBgColor();
+  document.getElementById('manualEditorModal').style.display = 'none';
+  document.getElementById('apiStatus').textContent = '✅ Manual edit applied!';
+}
+
+function closeManualEditor() {
+  document.getElementById('manualEditorModal').style.display = 'none';
 }
