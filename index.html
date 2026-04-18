@@ -38,7 +38,7 @@
     <!-- Step 1 -->
     <div class="panel active" id="panel1">
       <h2>Choose Passport Type</h2>
-<div class="type-grid">
+      <div class="type-grid">
         <div class="type-card selected" data-w="35" data-h="45" data-label="India (35×45mm)">
           <span class="flag">🇮🇳</span><strong>India</strong><small>35 × 45 mm</small>
         </div>
@@ -56,9 +56,6 @@
         </div>
         <div class="type-card" data-w="35" data-h="45" data-label="Canada (35×45mm)">
           <span class="flag">🇨🇦</span><strong>Canada</strong><small>35 × 45 mm</small>
-        </div>
-        <div class="type-card" data-w="86" data-h="54" data-type="idcard" data-label="ID Card (86×54mm)">
-          <span class="flag">🇮🇳</span><strong>ID Card</strong><small>Aadhaar/PAN<br>86×54mm F+B 4×6</small>
         </div>
       </div>
       <div class="selected-info" id="selectedInfo">Selected: India (35×45mm)</div>
@@ -98,76 +95,6 @@
           <button class="btn outline" onclick="goTo(1)">← Back</button>
           <button class="btn" onclick="applyCrop()">Crop & Continue →</button>
         </div>
-      </div>
-    </div>
-
-    <!-- NEW panel2b: ID Dual Crop -->
-    <div class="panel" id="panel2b">
-      <h2>ID Card - Crop Both Sides (86×54mm)</h2>
-      <div class="dual-crop">
-        <div class="crop-side">
-          <h3>🟢 Front Side</h3>
-          <div class="upload-area" id="frontUploadArea">
-            <input type="file" id="frontFileInput" accept="image/*" hidden/>
-            <p>📁 Upload front photo</p>
-            <button class="btn outline" onclick="event.stopPropagation(); document.getElementById('frontFileInput').click()">Choose Front</button>
-          </div>
-          <div id="frontCropSection" style="display:none">
-            <div class="crop-wrapper">
-              <canvas id="frontCropCanvas"></canvas>
-              <canvas id="frontGuideCanvas"></canvas>
-              <div id="frontCropBox">
-                <div class="handle tl"></div>
-                <div class="handle tr"></div>
-                <div class="handle bl"></div>
-                <div class="handle br"></div>
-              </div>
-            </div>
-            <div class="rotate-controls">
-              <button class="btn outline small" onclick="idRotateFront(-90)">↺90°</button>
-              <button class="btn outline small" onclick="idRotateFront(-1)">↺1°</button>
-              <input type="range" id="frontRotateSlider" min="-45" max="45" value="0" step="0.5" oninput="idRotateFrontTo(this.valueAsNumber)"/>
-              <span id="frontRotateVal">0°</span>
-              <button class="btn outline small" onclick="idRotateFront(1)">↻1°</button>
-              <button class="btn outline small" onclick="idRotateFront(90)">↻90°</button>
-              <button class="btn outline small" onclick="idRotateFront(0,true)">Reset</button>
-            </div>
-          </div>
-        </div>
-        <div class="crop-side">
-          <h3>🔴 Back Side</h3>
-          <div class="upload-area" id="backUploadArea">
-            <input type="file" id="backFileInput" accept="image/*" hidden/>
-            <p>📁 Upload back photo</p>
-            <button class="btn outline" onclick="event.stopPropagation(); document.getElementById('backFileInput').click()">Choose Back</button>
-          </div>
-          <div id="backCropSection" style="display:none">
-            <div class="crop-wrapper">
-              <canvas id="backCropCanvas"></canvas>
-              <canvas id="backGuideCanvas"></canvas>
-              <div id="backCropBox">
-                <div class="handle tl"></div>
-                <div class="handle tr"></div>
-                <div class="handle bl"></div>
-                <div class="handle br"></div>
-              </div>
-            </div>
-            <div class="rotate-controls">
-              <button class="btn outline small" onclick="idRotateBack(-90)">↺90°</button>
-              <button class="btn outline small" onclick="idRotateBack(-1)">↺1°</button>
-              <input type="range" id="backRotateSlider" min="-45" max="45" value="0" step="0.5" oninput="idRotateBackTo(this.valueAsNumber)"/>
-              <span id="backRotateVal">0°</span>
-              <button class="btn outline small" onclick="idRotateBack(1)">↻1°</button>
-              <button class="btn outline small" onclick="idRotateBack(90)">↻90°</button>
-              <button class="btn outline small" onclick="idRotateBack(0,true)">Reset</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="hint">Fixed 86×54mm crop box | Drag to position face/card | Both sides required</p>
-      <div class="btn-row">
-        <button class="btn outline" onclick="goToID(1)">← Back</button>
-        <button class="btn" onclick="applyIDCrops()">Crop Both → Continue</button>
       </div>
     </div>
 
@@ -284,7 +211,7 @@
     </div>
 
     <!-- Step 5 -->
-<div class="panel" id="panel5">
+    <div class="panel" id="panel5">
       <h2>Export Photo</h2>
 
       <!-- Single photo export -->
@@ -384,45 +311,9 @@
         </div>
       </div>
 
-<!-- Triple combo: 4 passport + 4 stamp + 4 token -->
+      <!-- Triple combo: 4 passport + 4 stamp + 4 token -->
       <div class="export-card combo-card" style="border-color:#f6ad55">
         <div class="export-card-title">🎨 Combo B <span class="sheet-badge combo-badge">4 Passport + 4 Stamp + 4 Token</span></div>
-
-      <!-- NEW: ID Card 4x6 Front+Back Sheet -->
-      <div class="export-card idcard-card">
-        <div class="export-card-title">🪪 ID Card 4×6 Sheet <span class="sheet-badge">Front + Back</span></div>
-        <p class="sheet-desc">Front card (left) + Back card (right) on landscape 4×6" sheet with thick black borders. 86×54mm cards, 300-800 DPI export.</p>
-        <div class="sheet-preview-wrap">
-          <canvas id="idSheetCanvas"></canvas>
-        </div>
-        <div class="sheet-info" id="idSheetInfo"></div>
-        <div class="export-options">
-          <label>Sheet background:
-            <select id="idSheetBg">
-              <option value="#ffffff" selected>White</option>
-              <option value="#f8f9fa">Light Grey</option>
-            </select>
-          </label>
-          <label>Gutter:
-            <select id="idGutter">
-              <option value="3">3mm</option>
-              <option value="5" selected>5mm</option>
-              <option value="8">8mm</option>
-            </select>
-          </label>
-          <label>Export DPI:
-            <select id="idDpi">
-              <option value="300">300 DPI</option>
-              <option value="600">600 DPI</option>
-              <option value="800" selected>800 DPI (8K)</option>
-            </select>
-          </label>
-        </div>
-        <div class="btn-row">
-          <button class="btn outline" onclick="previewIDSheet()">🔄 Refresh Preview</button>
-          <button class="btn green" onclick="downloadIDSheet()">⬇ Download 4×6 ID Sheet (8K)</button>
-        </div>
-      </div>
         <p class="sheet-desc">
           <strong>4 Passport</strong> (35×45mm) · <strong>4 Stamp</strong> (25×30mm) · <strong>4 Token</strong> (20×25mm) — 12 photos, 3 strips side by side, all scaled to fit sheet
         </p>
