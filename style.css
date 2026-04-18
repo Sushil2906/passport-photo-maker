@@ -223,6 +223,7 @@ h2 { font-size: 1.2rem; color: #4a5568; margin-bottom: 18px; }
 .api-section { margin-top: 12px; }
 .api-section p { margin-bottom: 8px; }
 .api-btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.api-btn-row .btn { min-height: 44px; touch-action: manipulation; }
 .api-status { font-size: 0.82rem; color: #4a5568; min-height: 18px; margin-top: 4px; }
 
 /* Beautify */
@@ -369,4 +370,10 @@ h2 { font-size: 1.2rem; color: #4a5568; margin-bottom: 18px; }
   .type-grid { grid-template-columns: repeat(2, 1fr); }
   .bg-section, .beautify-section { flex-direction: column; }
   .steps { flex-wrap: wrap; }
+  .btn { min-height: 44px; }
+  .handle { width: 20px; height: 20px; }
+  .handle.tl { top: -10px; left: -10px; }
+  .handle.tr { top: -10px; right: -10px; }
+  .handle.bl { bottom: -10px; left: -10px; }
+  .handle.br { bottom: -10px; right: -10px; }
 }

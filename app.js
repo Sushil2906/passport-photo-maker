@@ -446,6 +446,34 @@ function applyBgColor() {
   renderBgCanvas();
 }
 
+async function removeBgRMBG() {
+  const statusEl = document.getElementById('apiStatus');
+  statusEl.textContent = '⏳ Removing background (RMBG)…';
+  try {
+    const blob = await canvasToBlob(state.croppedCanvas);
+    const form = new FormData();
+    form.append('file', blob, 'photo.png');
+    const res = await fetch('https://api.rembg.ai/remove', {
+      method: 'POST',
+      body: form
+    });
+    if (!res.ok) { statusEl.textContent = '❌ RMBG: ' + res.statusText; return; }
+    const imgBlob = new Blob([await res.arrayBuffer()], { type: 'image/png' });
+    const url = URL.createObjectURL(imgBlob);
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      c.getContext('2d').drawImage(img, 0, 0);
+      state.removedCanvas = c;
+      URL.revokeObjectURL(url);
+      applyBgColor();
+      statusEl.textContent = '✅ RMBG done!';
+    };
+    img.src = url;
+  } catch (err) { statusEl.textContent = '❌ ' + err.message; }
+}
+
 async function removeBgAPI() {
   const key = getApiKey();
   if (!key || key === 'YOUR_REMOVE_BG_API_KEY') {

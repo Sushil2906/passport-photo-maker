@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Passport Photo Maker</title>
   <link rel="stylesheet" href="style.css"/>
 </head>
@@ -146,6 +146,7 @@
           <div class="api-section">
             <p><strong>AI Background Removal</strong></p>
             <div class="api-btn-row">
+              <button class="btn outline small" onclick="removeBgRMBG()">⚡ RMBG (Fast)</button>
               <button class="btn outline small" onclick="removeBgAPI()">✨ Remove BG (AI)</button>
               <button class="btn outline small" onclick="removeBgCanvas()">Auto Remove</button>
             </div>
