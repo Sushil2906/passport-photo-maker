@@ -116,9 +116,280 @@ let cropState = {};           // Passport crop
 let idFrontCropState = {};    // ID Front crop
 let idBackCropState = {};     // ID Back crop
 
-// ── DOM Elements ────────────────────────────────────────────────────────────
+// ── DOM Elements (Passport + ID) ───────────────────────────────────────────
 const panels = document.querySelectorAll('.panel');
 const steps = document.querySelectorAll('.step');
+
+// Passport elements
+const fileInput = document.getElementById('fileInput');
+const uploadArea = document.getElementById('uploadArea');
+const cropSection = document.getElementById('cropSection');
+const cropCanvas = document.getElementById('cropCanvas');
+const guideCanvas = document.getElementById('guideCanvas');
+const cropBox = document.getElementById('cropBox');
+
+// ID elements
+const frontUploadArea = document.getElementById('frontUploadArea');
+const frontFileInput = document.getElementById('frontFileInput');
+const frontCropSection = document.getElementById('frontCropSection');
+const frontCropCanvas = document.getElementById('frontCropCanvas');
+const frontGuideCanvas = document.getElementById('frontGuideCanvas');
+const frontCropBox = document.getElementById('frontCropBox');
+const frontRotateControls = document.getElementById('frontRotateControls');
+
+const backUploadArea = document.getElementById('backUploadArea');
+const backFileInput = document.getElementById('backFileInput');
+const backCropSection = document.getElementById('backCropSection');
+const backCropCanvas = document.getElementById('backCropCanvas');
+const backGuideCanvas = document.getElementById('backGuideCanvas');
+const backCropBox = document.getElementById('backCropBox');
+const backRotateControls = document.getElementById('backRotateControls');
+
+// ── Passport Crop (Basic - shared pattern for ID) ──────────────────────────
+function setupPassportCrop() {
+  state.rotationDeg = 0;
+  document.getElementById('rotateSlider').value = 0;
+  document.getElementById('rotateVal').textContent = '0°';
+  redrawPassportRotated();
+}
+
+function redrawPassportRotated() {
+  const img = state.originalImage;
+  if (!img) return;
+  
+  const rad = state.rotationDeg * Math.PI / 180;
+  const sinr = Math.sin(rad), cosr = Math.cos(rad);
+  const natW = img.width * Math.abs(cosr) + img.height * Math.abs(sinr);
+  const natH = img.width * Math.abs(sinr) + img.height * Math.abs(cosr);
+  
+  const maxW = 680, maxH = 480;
+  const scale = Math.min(maxW / natW, maxH / natH, 1);
+  
+  const cw = Math.round(natW * scale);
+  const ch = Math.round(natH * scale);
+  
+  cropCanvas.width = cw;
+  cropCanvas.height = ch;
+  cropCanvas.style.width = cw + 'px';
+  cropCanvas.style.height = ch + 'px';
+  
+  const ctx = cropCanvas.getContext('2d');
+  ctx.save();
+  ctx.translate(cw/2, ch/2);
+  ctx.rotate(rad);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, -img.width*scale/2, -img.height*scale/2, img.width*scale, img.height*scale);
+  ctx.restore();
+  
+  state.displayScale = scale;
+  
+  const aspect = state.passportW / state.passportH;
+  const bw = Math.round(Math.min(cw * 0.9, ch * 0.8 * aspect));
+  const bh = Math.round(bw / aspect);
+  const bx = Math.round((cw - bw) / 2);
+  const by = Math.round((ch - bh) / 2);
+  
+  cropState = {x: bx, y: by, w: bw, h: bh, cw, ch, aspect};
+  updatePassportCropBox();
+}
+
+function rotateby(deg, reset) {
+  if (reset) state.rotationDeg = 0;
+  else state.rotationDeg = (state.rotationDeg + deg + 360) % 360;
+  
+  const sliderVal = Math.max(-45, Math.min(45, state.rotationDeg));
+  document.getElementById('rotateSlider').value = sliderVal;
+  document.getElementById('rotateVal').textContent = state.rotationDeg + '°';
+  redrawPassportRotated();
+}
+
+function rotateToAngle(val) {
+  state.rotationDeg = +val;
+  document.getElementById('rotateVal').textContent = val + '°';
+  redrawPassportRotated();
+}
+
+function updatePassportCropBox() {
+  const {x, y, w, h} = cropState;
+  cropBox.style.left = x + 'px';
+  cropBox.style.top = y + 'px';
+  cropBox.style.width = w + 'px';
+  cropBox.style.height = h + 'px';
+}
+
+function setupPassportCropDrag() {
+  let drag = null;
+  const canvas = cropCanvas;
+  const box = cropBox;
+  
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {x: e.clientX - rect.left, y: e.clientY - rect.top};
+  }
+  
+  function onStart(e, type) {
+    e.preventDefault();
+    drag = {type, startX: getPos(e).x, startY: getPos(e).y, ...cropState};
+  }
+  
+  box.addEventListener('mousedown', e => onStart(e, 'move'));
+  box.querySelectorAll('.handle').forEach(h => {
+    const type = h.classList[1];
+    h.addEventListener('mousedown', e => { e.stopPropagation(); onStart(e, type); });
+  });
+  
+  function onMove(e) {
+    if (!drag) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    const dx = pos.x - drag.startX, dy = pos.y - drag.startY;
+    const aspect = state.passportW / state.passportH;
+    
+    let {x, y, w, h} = drag;
+    
+    if (drag.type === 'move') {
+      x = Math.max(0, Math.min(drag.cw - w, x + dx));
+      y = Math.max(0, Math.min(drag.ch - h, y + dy));
+    } else {
+      let nw = w, nh = h, nx = x, ny = y;
+      if (drag.type === 'br') { nw = Math.max(50, w + dx); nh = nw / aspect; }
+      if (drag.type === 'bl') { nw = Math.max(50, w - dx); nh = nw / aspect; nx = x + w - nw; }
+      if (drag.type === 'tr') { nw = Math.max(50, w + dx); nh = nw / aspect; ny = y + h - nh; }
+      if (drag.type === 'tl') { nw = Math.max(50, w - dx); nh = nw / aspect; nx = x + w - nw; ny = y + h - nh; }
+      x = Math.max(0, nx); y = Math.max(0, ny);
+      w = Math.min(nw, drag.cw - x); h = Math.min(nh, drag.ch - y);
+    }
+    
+    cropState = {...cropState, x, y, w, h};
+    updatePassportCropBox();
+  }
+  
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', () => drag = null);
+}
+
+function applyCrop() {
+  // Basic crop (full-res)
+  const scale = 1 / state.displayScale;
+  const {x, y, w, h} = cropState;
+  const cropW = Math.round(w * scale);
+  const cropH = Math.round(h * scale);
+  const cropX = Math.round(x * scale);
+  const cropY = Math.round(y * scale);
+  
+  const tmp = document.createElement('canvas');
+  tmp.width = state.originalImage.width;
+  tmp.height = state.originalImage.height;
+  const tmpCtx = tmp.getContext('2d');
+  tmpCtx.save();
+  tmpCtx.translate(tmp.width/2, tmp.height/2);
+  tmpCtx.rotate(state.rotationDeg * Math.PI / 180);
+  tmpCtx.imageSmoothingQuality = 'high';
+  tmpCtx.drawImage(state.originalImage, -state.originalImage.width/2, -state.originalImage.height/2);
+  tmpCtx.restore();
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = cropW;
+  canvas.height = cropH;
+  canvas.getContext('2d').drawImage(tmp, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+  state.croppedCanvas = canvas;
+  goTo(3);
+}
+
+// ── Background Stub (mode-aware) ────────────────────────────────────────────
+function initBgStep() {
+  state.bgCanvas = cloneCanvas(state.croppedCanvas);
+  document.getElementById('bgCanvas').getContext('2d').drawImage(state.bgCanvas, 0, 0);
+}
+
+function applyBgColor() {
+  const src = state.croppedCanvas;
+  state.bgCanvas = addBackground(src, state.bgColor, state.borderEnabled, state.borderColor, state.borderSize);
+  document.getElementById('bgCanvas').getContext('2d').drawImage(state.bgCanvas, 0, 0);
+}
+
+function initBeautifyStep() {
+  applyFilters(); // Stub
+}
+
+function initExportStep() {
+  // Stub - single export preview
+  const canvas = document.getElementById('exportCanvas');
+  const src = state.finalCanvas || state.bgCanvas || state.croppedCanvas;
+  canvas.getContext('2d').drawImage(src, 0, 0);
+}
+
+function initIDBgStep() {
+  state.idFrontBgCanvas = cloneCanvas(state.idFrontCanvas);
+  state.idBackBgCanvas = cloneCanvas(state.idBackCanvas);
+  renderIDBgPreview();
+}
+
+function initIDBeautifyStep() {
+  applyIDFilters();
+}
+
+function initIDExportStep() {
+  previewIDSheet();
+}
+
+// Export stubs
+function exportPhoto() { alert('Single export stub'); }
+function previewSheet() { alert('Passport sheet stub'); }
+function downloadSheet() { alert('Passport sheet stub'); }
+function previewCombo() { alert('Combo stub'); }
+function downloadCombo() { alert('Combo stub'); }
+function previewTriple() { alert('Triple stub'); }
+function downloadTriple() { alert('Triple stub'); }
+function previewIDSheet() {
+  const sheet = buildIDSheetCanvas();
+  if (sheet) document.getElementById('idSheetCanvas').getContext('2d').drawImage(sheet, 0, 0);
+}
+function downloadIDSheet() {
+  const sheet = buildIDSheetCanvas(800);
+  if (sheet) {
+    const a = document.createElement('a');
+    a.href = sheet.toDataURL('image/jpeg', 0.98);
+    a.download = 'idcard_4x6.jpg';
+    a.click();
+  }
+}
+
+// Swatch handlers (mode-aware)
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('swatch')) {
+    // Background color
+    if (!e.target.dataset.bcolor) {
+      document.querySelectorAll('.swatch:not(.b-swatch)').forEach(s => s.classList.remove('selected'));
+      e.target.classList.add('selected');
+      state.bgColor = e.target.dataset.color;
+      if (state.mode === 'passport') applyBgColor();
+      else applyIDBgColor();
+    } else {
+      // Border color
+      document.querySelectorAll('.b-swatch').forEach(s => s.classList.remove('selected'));
+      e.target.classList.add('selected');
+      state.borderColor = e.target.dataset.bcolor;
+      if (state.mode === 'passport') applyBgColor();
+      else applyIDBgColor();
+    }
+  }
+});
+
+// Border toggle
+document.getElementById('borderEnabled').addEventListener('change', e => {
+  state.borderEnabled = e.target.checked;
+  document.getElementById('borderOptions').style.display = e.target.checked ? 'block' : 'none';
+  if (state.mode === 'passport') applyBgColor();
+  else applyIDBgColor();
+});
+
+document.getElementById('borderSize').addEventListener('input', e => {
+  state.borderSize = +e.target.value;
+  document.getElementById('borderSizeVal').textContent = state.borderSize;
+  if (state.mode === 'passport') applyBgColor();
+  else applyIDBgColor();
+});
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 function goTo(n) {
