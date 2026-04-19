@@ -1,10 +1,10 @@
-// ── remove.bg Config (Cloudinary removed) ──────────────────────────────────
+// ── API Key (hardcoded + persisted in localStorage) ─────────────────────────
 const HARDCODED_KEY = '71nkYTcWk39kzddBidsPiVKf';
 function getApiKey() {
   return localStorage.getItem('removebg_key') || HARDCODED_KEY;
 }
+// Save key to localStorage on first valid use so it persists across sessions
 function saveApiKey(key) { localStorage.setItem('removebg_key', key); }
-
 
 // ── State ───────────────────────────────────────────────────────────────────
 const state = {
@@ -20,8 +20,6 @@ const state = {
   finalCanvas: null,
   rotationDeg: 0,
 };
-
-let manualState = { maskCanvas: null, tolerance: 30, feather: 2, mode: 'add', selecting: false };
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 function goTo(n) {
@@ -363,184 +361,10 @@ function applyCrop() {
 }
 
 // ── Step 3: Background ──────────────────────────────────────────────────────
-let manualState = { maskCanvas: null, tolerance: 30, feather: 2, mode: 'add', selecting: false };
-
 function initBgStep() {
   state.removedCanvas = null;
-  manualState.maskCanvas = null;
   state.bgCanvas = cloneCanvas(state.croppedCanvas);
   renderBgCanvas();
-  document.getElementById('manualTools').style.display = 'none';
-}
-
-function initManualRemoval() {
-  document.getElementById('manualTools').style.display = 'block';
-  const canvas = document.getElementById('selectionCanvas');
-  const ctx = canvas.getContext('2d');
-  const src = state.croppedCanvas;
-  canvas.width = src.width; canvas.height = src.height;
-  ctx.drawImage(src, 0, 0);
-  manualState.maskCanvas = createMaskCanvas(src.width, src.height);
-  updateWandPreview();
-}
-
-function createMaskCanvas(w, h) {
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-  const data = ctx.createImageData(w, h);
-  data.data.fill(0); // transparent mask
-  ctx.putImageData(data, 0, 0);
-  return c;
-}
-
-function updateWandPreview() {
-  const canvas = document.getElementById('selectionCanvas');
-  const ctx = canvas.getContext('2d');
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.drawImage(state.croppedCanvas, 0, 0, canvas.width, canvas.height);
-  
-  if (manualState.maskCanvas) {
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = 'rgba(255,0,0,0.5)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Feather preview
-    const feather = manualState.feather;
-    if (feather > 0) {
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imgData.data;
-      for (let i = 3; i < d.length; i += 4) {
-        if (d[i] > 0) d[i] *= Math.max(0, 1 - feather / 50);
-      }
-      ctx.putImageData(imgData, 0, 0);
-    }
-  }
-  ctx.restore();
-}
-
-function doMagicWand(mode) {
-  manualState.mode = mode;
-  document.body.style.cursor = 'crosshair';
-  const canvas = document.getElementById('selectionCanvas');
-  canvas.style.cursor = 'crosshair';
-  
-  let startX, startY;
-  const onClick = (e) => {
-    const rect = canvas.getBoundingClientRect();
-    startX = (e.clientX - rect.left) * (state.croppedCanvas.width / canvas.width);
-    startY = (e.clientY - rect.top) * (state.croppedCanvas.height / canvas.height);
-    
-    floodFill(startX|0, startY|0, manualState.tolerance, mode);
-    updateWandPreview();
-  };
-  
-  canvas.onclick = onClick;
-  document.onkeydown = (e) => {
-    if (e.ctrlKey && e.key === 'z') clearSelection();
-  };
-  
-  // Single click handler
-  setTimeout(() => canvas.onclick = onClick, 100);
-}
-
-function floodFill(x, y, tolerance, mode) {
-  const srcCanvas = state.croppedCanvas;
-  const maskCtx = manualState.maskCanvas.getContext('2d');
-  const srcData = srcCanvas.getContext('2d').getImageData(x, y, 1, 1);
-  const targetR = srcData.data[0], targetG = srcData.data[1], targetB = srcData.data[2];
-  
-  const stack = [[x, y]];
-  const maskData = maskCtx.createImageData(manualState.maskCanvas.width, manualState.maskCanvas.height);
-  const visited = new Set();
-  
-  while (stack.length) {
-    const [cx, cy] = stack.pop();
-    const key = `${cx},${cy}`;
-    if (visited.has(key)) continue;
-    visited.add(key);
-    
-    if (cx < 0 || cx >= srcCanvas.width || cy < 0 || cy >= srcCanvas.height) continue;
-    
-    const pxData = srcCanvas.getContext('2d').getImageData(cx, cy, 1, 1).data;
-    const dist = Math.abs(pxData[0]-targetR) + Math.abs(pxData[1]-targetG) + Math.abs(pxData[2]-targetB);
-    
-    if (dist <= tolerance * 3) {
-      const maskIdx = (cy * maskData.width + cx) * 4;
-      if (mode === 'add') {
-        maskData.data[maskIdx + 3] = 255;  // opaque mask = keep foreground
-      } else {
-        maskData.data[maskIdx + 3] = 0;    // transparent mask = remove BG
-      }
-      
-      stack.push([cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]);
-    }
-  }
-  
-  maskCtx.putImageData(maskData, 0, 0);
-}
-
-function invertSelection() {
-  const ctx = manualState.maskCanvas.getContext('2d');
-  const imgData = ctx.getImageData(0, 0, manualState.maskCanvas.width, manualState.maskCanvas.height);
-  const d = imgData.data;
-  for (let i = 3; i < d.length; i += 4) {
-    d[i] = 255 - d[i];
-  }
-  ctx.putImageData(imgData, 0, 0);
-  updateWandPreview();
-}
-
-function clearSelection() {
-  manualState.maskCanvas = createMaskCanvas(state.croppedCanvas.width, state.croppedCanvas.height);
-  updateWandPreview();
-}
-
-async function applyManualRemoval() {
-  const statusEl = document.getElementById('apiStatus');
-  statusEl.textContent = '⏳ Applying manual mask...';
-  
-  const feather = manualState.feather;
-  let resultCanvas = document.createElement('canvas');
-  resultCanvas.width = state.croppedCanvas.width;
-  resultCanvas.height = state.croppedCanvas.height;
-  const ctx = resultCanvas.getContext('2d');
-  
-  // Feather mask edges
-  if (feather > 0) {
-    const maskBlur = document.createElement('canvas');
-    maskBlur.width = resultCanvas.width;
-    maskBlur.height = resultCanvas.height;
-    const mctx = maskBlur.getContext('2d');
-    mctx.filter = `blur(${feather}px)`;
-    mctx.drawImage(manualState.maskCanvas, 0, 0);
-    mctx.filter = 'none';
-    
-    // Composite with feather
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(state.croppedCanvas, 0, 0);
-    
-    // Use mask as alpha
-    const srcData = ctx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
-    const maskData = mctx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
-    const sd = srcData.data, md = maskData.data;
-    for (let i = 3; i < sd.length; i += 4) {
-      sd[i] = md[i];  // copy mask alpha
-    }
-    ctx.putImageData(srcData, 0, 0);
-  } else {
-    // Simple mask
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(state.croppedCanvas, 0, 0);
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.drawImage(manualState.maskCanvas, 0, 0);
-  }
-  
-  state.removedCanvas = resultCanvas;
-  applyBgColor();
-  statusEl.textContent = '✅ Manual BG removal applied!';
-  document.getElementById('manualTools').style.display = 'none';
 }
 
 function cloneCanvas(src) {
@@ -623,13 +447,14 @@ function applyBgColor() {
 }
 
 async function removeBgAPI() {
-  const statusEl = document.getElementById('apiStatus');
-  statusEl.textContent = '⏳ remove.bg API...';
   const key = getApiKey();
   if (!key || key === 'YOUR_REMOVE_BG_API_KEY') {
-    statusEl.textContent = '❌ Set remove.bg key in app.js';
+    alert('Set your remove.bg API key in app.js (HARDCODED_KEY variable).');
     return;
   }
+  const statusEl = document.getElementById('apiStatus');
+  statusEl.textContent = '⏳ Removing background…';
+  // Use 'preview' size for faster response (~0.2 credits, ~625px)
   const blob = await canvasToBlob(state.croppedCanvas);
   const form = new FormData();
   form.append('image_file', blob, 'photo.png');
@@ -648,48 +473,14 @@ async function removeBgAPI() {
       const c = document.createElement('canvas');
       c.width = img.width; c.height = img.height;
       c.getContext('2d').drawImage(img, 0, 0);
-      state.removedCanvas = c;
+      state.removedCanvas = c;  // store transparent layer
       URL.revokeObjectURL(url);
-      applyBgColor();
-      statusEl.textContent = '✅ remove.bg done!';
+      applyBgColor();           // composite bg + border on top
+      statusEl.textContent = '✅ Background removed!';
     };
     img.src = url;
   } catch (err) { statusEl.textContent = '❌ ' + err.message; }
-    // Original remove.bg (backup)
-    statusEl.textContent = '⏳ remove.bg API...';
-    const key = getApiKey();
-    if (!key || key === 'YOUR_REMOVE_BG_API_KEY') {
-      statusEl.textContent = '❌ Set remove.bg key in app.js';
-      return;
-    }
-    const blob = await canvasToBlob(state.croppedCanvas);
-    const form = new FormData();
-    form.append('image_file', blob, 'photo.png');
-    form.append('size', 'auto');
-    form.append('format', 'png');
-    try {
-      const res = await fetch('https://api.remove.bg/v1.0/removebg', {
-        method: 'POST', headers: { 'X-Api-Key': key }, body: form
-      });
-      if (!res.ok) { statusEl.textContent = '❌ ' + res.statusText; return; }
-      saveApiKey(key);
-      const imgBlob = new Blob([await res.arrayBuffer()], { type: 'image/png' });
-      const url = URL.createObjectURL(imgBlob);
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.width; c.height = img.height;
-        c.getContext('2d').drawImage(img, 0, 0);
-        state.removedCanvas = c;
-        URL.revokeObjectURL(url);
-        applyBgColor();
-        statusEl.textContent = '✅ remove.bg done!';
-      };
-      img.src = url;
-    } catch (err) { statusEl.textContent = '❌ ' + err.message; }
-  }
-
-
+}
 
 function canvasToBlob(canvas) {
   return new Promise(res => canvas.toBlob(res, 'image/png'));
@@ -787,24 +578,14 @@ function applyBeautyLevel(level) {
   applyFilters();
 }
 
-let filterTimeout = null;
-
 function applyFilters() {
-  // Throttle to ~60fps max
-  if (filterTimeout) return;
-  filterTimeout = setTimeout(() => {
-    filterTimeout = null;
-    _applyFilters();
-  }, 16);
-}
-
-function _applyFilters() {
   const brightness = +document.getElementById('brightness').value;
   const contrast   = +document.getElementById('contrast').value;
   const saturation = +document.getElementById('saturation').value;
   const sharpness  = +document.getElementById('sharpness').value;
   const smooth     = +document.getElementById('smooth').value;
-  const quality    = +document.getElementById('quality').value;
+
+  const quality  = +document.getElementById('quality').value;
 
   document.getElementById('brightnessVal').textContent = brightness;
   document.getElementById('contrastVal').textContent   = contrast;
@@ -814,38 +595,50 @@ function _applyFilters() {
   document.getElementById('qualityVal').textContent    = quality;
 
   const src = state.bgCanvas;
-  
-  // PREVIEW ONLY: Downscale to max 300x400px to reduce processing
-  const MAX_PREV_W = 300, MAX_PREV_H = 400;
-  const prevScale = Math.min(1, MAX_PREV_W / src.width, MAX_PREV_H / src.height);
-  const prevW = Math.round(src.width * prevScale);
-  const prevH = Math.round(src.height * prevScale);
-  
-  const c = document.createElement('canvas');
-  c.width = prevW; c.height = prevH;
-  const ctx = c.getContext('2d');
-  
-  // CSS GPU filters FIRST (brightness/contrast/saturation) - super fast
-  ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(src, 0, 0, prevW, prevH);
-  ctx.filter = 'none';
-  
-  // THEN JS effects (only on small preview canvas)
-  if (smooth > 0) applyBlurSmooth(ctx, prevW, prevH, Math.max(0.5, smooth * 0.3));
-  if (sharpness > 0) applySharpen(ctx, prevW, prevH, sharpness * 0.6);
-  
-  // Quality upscale: ONLY preview effect (disabled for perf), full on export
-  // Note: Full quality applied later in exportPhoto() / sheet functions
-  
-  state.finalCanvas = c; // Still store full-res for export
+  let c = document.createElement('canvas');
 
-  // Display preview (already downscaled)
+  // Quality enhance: upscale 2× per level then downscale back — sharpens detail
+  if (quality > 0) {
+    const scale = 1 + quality * 0.4; // up to 3× at level 5
+    const up = document.createElement('canvas');
+    up.width  = Math.round(src.width  * scale);
+    up.height = Math.round(src.height * scale);
+    const uc = up.getContext('2d');
+    uc.imageSmoothingEnabled = true;
+    uc.imageSmoothingQuality = 'high';
+    uc.drawImage(src, 0, 0, up.width, up.height);
+    applySharpen(uc, up.width, up.height, quality);
+    c.width = src.width; c.height = src.height;
+    const dc = c.getContext('2d');
+    dc.imageSmoothingEnabled = true;
+    dc.imageSmoothingQuality = 'high';
+    dc.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+    dc.drawImage(up, 0, 0, c.width, c.height);
+    dc.filter = 'none';
+    if (smooth > 0) applyBlurSmooth(dc, c.width, c.height, smooth * 0.5);
+    if (sharpness > 0) applySharpen(dc, c.width, c.height, sharpness);
+  } else {
+    c.width = src.width; c.height = src.height;
+    const ctx = c.getContext('2d');
+    ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+    ctx.drawImage(src, 0, 0);
+    ctx.filter = 'none';
+    if (smooth > 0) applyBlurSmooth(ctx, c.width, c.height, smooth * 0.5);
+    if (sharpness > 0) applySharpen(ctx, c.width, c.height, sharpness);
+  }
+
+  state.finalCanvas = c;
+
+  // Preview only — display canvas is smaller, source stays full-res
   const display = document.getElementById('beautifyCanvas');
-  display.width = prevW; display.height = prevH;
+  const maxW = 260;
+  const scale = Math.min(1, maxW / c.width);
+  display.width  = Math.round(c.width  * scale);
+  display.height = Math.round(c.height * scale);
   const dctx = display.getContext('2d');
+  dctx.imageSmoothingEnabled = true;
   dctx.imageSmoothingQuality = 'high';
-  dctx.drawImage(c, 0, 0);
+  dctx.drawImage(c, 0, 0, display.width, display.height);
 }
 
 function applyBlurSmooth(ctx, w, h, radius) {
