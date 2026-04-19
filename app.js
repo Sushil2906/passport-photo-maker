@@ -1,5 +1,5 @@
 // ── API Key (hardcoded + persisted in localStorage) ─────────────────────────
-const HARDCODED_KEY = '71nkYTcWk39kzddBidsPiVKf';
+const HARDCODED_KEY = 'aPERdhcFXyxtpLo6Wfid8A4y';
 function getApiKey() {
   return localStorage.getItem('removebg_key') || HARDCODED_KEY;
 }
