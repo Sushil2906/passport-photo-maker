@@ -146,30 +146,9 @@
           <div class="api-section">
             <p><strong>AI Background Removal</strong></p>
             <div class="api-btn-row">
-              <button class="btn outline small" onclick="removeBgAPI()">🎯 remove.bg AI</button>
-              <button class="btn outline small" onclick="removeBgCanvas()">⚡ Auto Remove</button>
-              <button class="btn outline small" onclick="initManualRemoval()">✨ Magic Wand</button>
+              <button class="btn outline small" onclick="removeBgAPI()">✨ Remove BG (AI)</button>
+              <button class="btn outline small" onclick="removeBgCanvas()">Auto Remove</button>
             </div>
-            <div id="manualTools" class="manual-tools" style="display:none; margin-top:12px; padding:12px; background:#f8f9ff; border-radius:8px; border:1px solid #e2e8f0;">
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <canvas id="selectionCanvas" style="border:1px solid #ddd; border-radius:4px; max-height:120px; cursor:crosshair;"></canvas>
-                <div>
-                  <label>Tolerance <span id="toleranceVal">30</span>%</label>
-                  <input type="range" id="tolerance" min="0" max="100" value="30" oninput="document.getElementById('toleranceVal').textContent=this.value; updateWandPreview();">
-                  <label>Feather <span id="featherVal">2</span>px</label>
-                  <input type="range" id="feather" min="0" max="10" value="2" step="0.5" oninput="document.getElementById('featherVal').textContent=this.value; updateWandPreview();">
-                </div>
-              </div>
-              <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
-                <button class="btn outline small" onclick="doMagicWand('add')">➕ Add Selection</button>
-                <button class="btn outline small" onclick="doMagicWand('subtract')">➖ Subtract</button>
-                <button class="btn outline small" onclick="invertSelection()">↻ Invert</button>
-                <button class="btn outline small" onclick="clearSelection()">🗑️ Clear</button>
-                <button class="btn small" onclick="applyManualRemoval()">✅ Apply Removal</button>
-              </div>
-              <small style="color:#666; display:block; margin-top:4px;">Click canvas with wand active (tolerance controls similarity). Ctrl=add, Shift=subtract.</small>
-            </div>
-
             <p class="api-status" id="apiStatus"></p>
           </div>
         </div>
