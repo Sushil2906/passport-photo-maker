@@ -225,18 +225,6 @@ h2 { font-size: 1.2rem; color: #4a5568; margin-bottom: 18px; }
 .api-btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .api-status { font-size: 0.82rem; color: #4a5568; min-height: 18px; margin-top: 4px; }
 
-.manual-tools {
-  font-size: 0.88rem;
-}
-.manual-tools label {
-  display: block; margin-bottom: 8px; color: #4a5568; font-weight: 500;
-}
-.manual-tools input[type=range] {
-  width: 100px; display: block; margin-top: 4px; accent-color: #667eea;
-}
-#selectionCanvas:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-
-
 /* Beautify */
 .beautify-section { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
 #beautifyCanvas { border-radius: 8px; border: 1px solid #e2e8f0; max-width: 260px; }
