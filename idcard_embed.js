@@ -901,7 +901,7 @@ function idcardDrawCentered(ctx, img, cardW, cardH, zoneX, zoneY, zoneW, zoneH, 
   // scale is applied on top of the physical mm->px size so the rendered artwork
   // matches the printer output (browser/driver scaling can leave a small margin).
   // cardW/cardH passed here are already computed in PX for DPI=1200.
-  const scale = Math.min((zoneW - margin * 2) / cardW, (zoneH - margin * 2) / cardH) * 0.83;
+  const scale = Math.min((zoneW - margin * 2) / cardW, (zoneH - margin * 2) / cardH) * 0.835;
   const dw = cardW * scale;
   const dh = cardH * scale;
   const dx = zoneX + (zoneW - dw) / 2;
