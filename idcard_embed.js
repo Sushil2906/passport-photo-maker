@@ -164,6 +164,10 @@ function hidePassportMaker() {
   showIdCardMaker();
 }
 
+// If user clicks browser back from ID maker, keep passport maker visible and move to step 1
+// (No extra back button is rendered.)
+
+
 window.showIdCardMaker = showIdCardMaker;
 window.hideIdCardMaker = hideIdCardMaker;
 window.showPassportMaker = showPassportMaker;
