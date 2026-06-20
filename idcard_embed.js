@@ -124,12 +124,21 @@ function hideIdCardMaker() {
 
   wrap.style.display = 'none';
 
-  // Restore passport photo panels
+  // Restore passport photo panels completely (both display + active)
   document.querySelectorAll('#appRoot .panel').forEach(p => {
     p.style.display = '';
+    // idcard view hides panels and may have removed/overwritten classes
+    // so ensure the currently active panel in photo maker is visible again
+    // (we re-run the photo-maker goTo by keeping classes untouched)
   });
-  // keep whatever active panel is already set by goTo(); don’t force it here
+
+  // Ensure only the active panel is visible based on what app.js keeps in classes
+  const active = document.querySelector('#appRoot .panel.active');
+  document.querySelectorAll('#appRoot .panel').forEach(p => {
+    p.style.display = (active && p === active) ? 'block' : 'none';
+  });
 }
+
 
 
 window.showIdCardMaker = showIdCardMaker;
