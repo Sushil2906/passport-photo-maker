@@ -105,7 +105,16 @@ function showIdCardMaker() {
   const wrap = document.getElementById('idCardWrapper');
   if (!wrap) return;
 
-  // Hide passport photo panels while showing ID maker
+  // Hide passport maker UI while showing ID maker
+  document.querySelectorAll('#appRoot .steps').forEach(s => {
+    s.style.display = 'none';
+  });
+
+  document.querySelectorAll('#appRoot .step').forEach(s => {
+    s.style.display = 'none';
+    s.classList.remove('active');
+  });
+
   document.querySelectorAll('#appRoot .panel').forEach(p => {
     p.style.display = 'none';
     p.classList.remove('active');
@@ -125,9 +134,12 @@ function hideIdCardMaker() {
   wrap.style.display = 'none';
 
   // Always restore the passport maker UI fully.
+  document.querySelectorAll('#appRoot .steps').forEach(s => {
+    s.style.display = '';
+  });
+
   // app.js uses classes (.panel.active / .step.active) to control visibility,
-  // but idcard maker overwrites inline styles (p.style.display='none').
-  // So we must remove the inline styles.
+  // but idcard maker overwrites inline styles, so remove those inline styles.
   document.querySelectorAll('#appRoot .panel').forEach(p => {
     p.style.display = '';
   });
@@ -136,7 +148,7 @@ function hideIdCardMaker() {
     s.style.display = '';
   });
 
-  // Do NOT hide other panels here. Visibility is controlled by CSS/classes.
+  // Do NOT change app.js active/done classes here.
 }
 
 
@@ -145,6 +157,10 @@ function hideIdCardMaker() {
 function showPassportMaker() {
   const wrap = document.getElementById('idCardWrapper');
   if (wrap) wrap.style.display = 'none';
+
+  document.querySelectorAll('#appRoot .steps').forEach(s => {
+    s.style.display = '';
+  });
 
   document.querySelectorAll('#appRoot .panel').forEach(p => {
     p.style.display = '';
@@ -935,8 +951,27 @@ window.idcardExportImage = idcardExportImage;
 window.idcardPrintCard = idcardPrintCard;
 window.idcardBuildPrintPreview = idcardBuildPrintPreview;
 
+/**
+ * Initial UI state:
+ * - ID Card Maker hidden by default
+ * - Passport maker UI visible by default
+ *
+ * This prevents the “only buttons visible / blank until click” issue.
+ */
+function initIdCardVisibility() {
+  const wrap = document.getElementById('idCardWrapper');
+  if (wrap) wrap.style.display = 'none';
+
+  // Restore passport maker visibility (clear any inline display overrides)
+  document.querySelectorAll('#appRoot .steps').forEach(s => { s.style.display = ''; });
+  document.querySelectorAll('#appRoot .step').forEach(s => { s.style.display = ''; });
+  document.querySelectorAll('#appRoot .panel').forEach(p => { p.style.display = ''; });
+}
+
 // expose for inline onclick usage
 window.idcardGoToStep = idcardGoToStep;
 window.showIdCardMaker = showIdCardMaker;
 window.hideIdCardMaker = hideIdCardMaker;
+
+initIdCardVisibility();
 
