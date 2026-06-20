@@ -943,15 +943,34 @@ function idcardPrintCard() {
 
   const dataUrl = src.toDataURL('image/png');
   const win = window.open('', '_blank');
-  win.document.write(`<html><head><style>
-    *{margin:0;padding:0;}
-    img{width:4in;height:6in;display:block;}
-    @page{size:4in 6in;margin:0;}
-  </style></head><body><img src="${dataUrl}"/>
-  <script>
-    window.onload = () => { window.print(); window.close(); };
-  <\/script>
-  </body></html>`);
+
+  // Enforce exact 4in x 6in printable area and scale the image to fill it.
+  win.document.write(`
+    <html>
+      <head>
+        <style>
+          *{margin:0;padding:0;}
+          @page{size:4in 6in;margin:0;}
+          html,body{width:4in;height:6in;overflow:hidden;}
+          .page{width:4in;height:6in;}
+          img{
+            width:100%;
+            height:100%;
+            display:block;
+            object-fit:fill;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="page">
+          <img src="${dataUrl}" />
+        </div>
+        <script>
+          window.onload = () => { window.print(); window.close(); };
+        <\/script>
+      </body>
+    </html>
+  `);
   win.document.close();
 }
 
