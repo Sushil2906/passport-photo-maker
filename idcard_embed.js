@@ -120,6 +120,10 @@ function showIdCardMaker() {
     p.classList.remove('active');
   });
 
+  // Hide selected label in ID maker mode too
+  const selectedInfo = document.getElementById('selectedInfo');
+  if (selectedInfo) selectedInfo.style.display = 'none';
+
   wrap.style.display = 'block';
   // ensure crop has correct state
   idcardState.hasBack = document.getElementById('idcard-has-back').checked;
@@ -169,6 +173,10 @@ function showPassportMaker() {
   document.querySelectorAll('#appRoot .step').forEach(s => {
     s.style.display = '';
   });
+
+  // Hide until user clicks a passport type button
+  const selectedInfo = document.getElementById('selectedInfo');
+  if (selectedInfo) selectedInfo.style.display = 'none';
 
   // Start from step 1 every time
   // (app.js goTo uses panel/step classes)
@@ -962,10 +970,14 @@ function initIdCardVisibility() {
   const wrap = document.getElementById('idCardWrapper');
   if (wrap) wrap.style.display = 'none';
 
-  // Restore passport maker visibility (clear any inline display overrides)
-  document.querySelectorAll('#appRoot .steps').forEach(s => { s.style.display = ''; });
-  document.querySelectorAll('#appRoot .step').forEach(s => { s.style.display = ''; });
-  document.querySelectorAll('#appRoot .panel').forEach(p => { p.style.display = ''; });
+  // Default: show only the option buttons (no passport flow panels/steps yet)
+  document.querySelectorAll('#appRoot .steps').forEach(s => { s.style.display = 'none'; });
+  document.querySelectorAll('#appRoot .step').forEach(s => { s.style.display = 'none'; });
+  document.querySelectorAll('#appRoot .panel').forEach(p => { p.style.display = 'none'; });
+
+  // Hide selected label until a passport type/size button is clicked
+  const selectedInfo = document.getElementById('selectedInfo');
+  if (selectedInfo) selectedInfo.style.display = 'none';
 }
 
 // expose for inline onclick usage
