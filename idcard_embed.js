@@ -124,26 +124,52 @@ function hideIdCardMaker() {
 
   wrap.style.display = 'none';
 
-  // Restore passport photo panels completely (both display + active)
+  // Always restore the passport maker UI fully.
+  // app.js uses classes (.panel.active / .step.active) to control visibility,
+  // but idcard maker overwrites inline styles (p.style.display='none').
+  // So we must remove the inline styles.
   document.querySelectorAll('#appRoot .panel').forEach(p => {
     p.style.display = '';
-    // idcard view hides panels and may have removed/overwritten classes
-    // so ensure the currently active panel in photo maker is visible again
-    // (we re-run the photo-maker goTo by keeping classes untouched)
   });
 
-  // Ensure only the active panel is visible based on what app.js keeps in classes
-  const active = document.querySelector('#appRoot .panel.active');
-  document.querySelectorAll('#appRoot .panel').forEach(p => {
-    p.style.display = (active && p === active) ? 'block' : 'none';
+  document.querySelectorAll('#appRoot .step').forEach(s => {
+    s.style.display = '';
   });
+
+  // Do NOT hide other panels here. Visibility is controlled by CSS/classes.
 }
 
 
 
+
+function showPassportMaker() {
+  const wrap = document.getElementById('idCardWrapper');
+  if (wrap) wrap.style.display = 'none';
+
+  document.querySelectorAll('#appRoot .panel').forEach(p => {
+    p.style.display = '';
+  });
+
+  document.querySelectorAll('#appRoot .step').forEach(s => {
+    s.style.display = '';
+  });
+
+  // Start from step 1 every time
+  // (app.js goTo uses panel/step classes)
+  if (typeof goTo === 'function') goTo(1);
+}
+
+function hidePassportMaker() {
+  // Default: return to ID card option screen
+  showIdCardMaker();
+}
+
 window.showIdCardMaker = showIdCardMaker;
 window.hideIdCardMaker = hideIdCardMaker;
+window.showPassportMaker = showPassportMaker;
+window.hidePassportMaker = hidePassportMaker;
 window.idcardGoToStep = idcardGoToStep;
+
 
 // ── Back-side toggle ────────────────────────────────────────────────────
 document.getElementById('idcard-has-back')?.addEventListener('change', function () {
@@ -894,7 +920,10 @@ function idcardPrintCard() {
     img{width:4in;height:6in;display:block;}
     @page{size:4in 6in;margin:0;}
   </style></head><body><img src="${dataUrl}"/>
-  <script>window.onload=()=>{window.print();window.close();}<' + '/' + 'script></body></html>`);
+  <script>
+    window.onload = () => { window.print(); window.close(); };
+  <\/script>
+  </body></html>`);
   win.document.close();
 }
 
