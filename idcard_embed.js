@@ -539,8 +539,8 @@ function idcardApplyCrop() {
   idcardState[`edited${idcardCap(side)}`] = out;
   idcardState.edits[side] = { brightness: 100, contrast: 100, sharpness: 0, clarity: 0 };
 
-  const pv = document.getElementById(`idcard-cropped-${side}`.replace('front','front').replace('back','back'));
-  const pvEl = pv || document.getElementById(`idcard-cropped-${side}`);
+  const pvEl = document.getElementById(`idcard-cropped-${side}`);
+
 
   if (pvEl) {
     pvEl.style.display = 'block';
