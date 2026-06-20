@@ -104,6 +104,13 @@ function idcardGoToStep(n) {
 function showIdCardMaker() {
   const wrap = document.getElementById('idCardWrapper');
   if (!wrap) return;
+
+  // Hide passport photo panels while showing ID maker
+  document.querySelectorAll('#appRoot .panel').forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
+
   wrap.style.display = 'block';
   // ensure crop has correct state
   idcardState.hasBack = document.getElementById('idcard-has-back').checked;
@@ -114,8 +121,16 @@ function showIdCardMaker() {
 function hideIdCardMaker() {
   const wrap = document.getElementById('idCardWrapper');
   if (!wrap) return;
+
   wrap.style.display = 'none';
+
+  // Restore passport photo panels
+  document.querySelectorAll('#appRoot .panel').forEach(p => {
+    p.style.display = '';
+  });
+  // keep whatever active panel is already set by goTo(); don’t force it here
 }
+
 
 window.showIdCardMaker = showIdCardMaker;
 window.hideIdCardMaker = hideIdCardMaker;
