@@ -898,7 +898,8 @@ function idcardBuildPrintPreview() {
 }
 
 function idcardDrawCentered(ctx, img, cardW, cardH, zoneX, zoneY, zoneW, zoneH, margin, border) {
-  const scale = Math.min((zoneW - margin*2) / cardW, (zoneH - margin*2) / cardH) * 0.75;
+  // Slightly increase scale so the printed card fills the preview area more accurately.
+  const scale = Math.min((zoneW - margin*2) / cardW, (zoneH - margin*2) / cardH) * 0.78;
   const dw = cardW * scale;
   const dh = cardH * scale;
   const dx = zoneX + (zoneW - dw) / 2;
