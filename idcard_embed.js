@@ -873,7 +873,7 @@ function idcardBuildPrintPreview() {
   const front = idcardState.editedFront || idcardState.croppedFront;
   const back = idcardState.hasBack ? (idcardState.editedBack || idcardState.croppedBack) : null;
 
-  const margin = 40;
+  const margin = 34;
   const halfH = pageH / 2;
   const border = idcardGetBorderSettings();
 
@@ -901,7 +901,7 @@ function idcardDrawCentered(ctx, img, cardW, cardH, zoneX, zoneY, zoneW, zoneH, 
   // scale is applied on top of the physical mm->px size so the rendered artwork
   // matches the printer output (browser/driver scaling can leave a small margin).
   // cardW/cardH passed here are already computed in PX for DPI=1200.
-  const scale = Math.min((zoneW - margin * 2) / cardW, (zoneH - margin * 2) / cardH) * 0.79;
+  const scale = Math.min((zoneW - margin * 2) / cardW, (zoneH - margin * 2) / cardH) * 0.83;
   const dw = cardW * scale;
   const dh = cardH * scale;
   const dx = zoneX + (zoneW - dw) / 2;
